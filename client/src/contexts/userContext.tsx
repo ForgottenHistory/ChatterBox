@@ -12,6 +12,7 @@ export interface User {
 
 interface UserContextType {
   user: User | null;
+  isLoading: boolean;
   setUsername: (username: string) => void;
   setUserAvatar: (avatar: string, type: User['avatarType']) => void;
   setUserStatus: (status: User['status']) => void;
@@ -24,6 +25,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Generate a random color for initials avatar
   const generateAvatarColor = (): string => {
@@ -35,34 +37,48 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  // Load user from localStorage on app start
+  // Initialize user data on app start
   useEffect(() => {
-    const savedUser = localStorage.getItem('chatterbox-user');
-    if (savedUser) {
+    const initializeUser = async () => {
       try {
-        const userData = JSON.parse(savedUser);
-        // Migrate old user data if needed
-        if (!userData.avatarType) {
-          userData.avatarType = 'initials';
-          userData.avatar = userData.avatar || generateAvatarColor();
-          userData.joinedAt = userData.joinedAt || new Date().toISOString();
-          userData.lastActive = new Date().toISOString();
+        // Simulate minimum loading time for smooth UX
+        const minLoadingTime = new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const savedUser = localStorage.getItem('chatterbox-user');
+        
+        if (savedUser) {
+          const userData = JSON.parse(savedUser);
+          
+          // Migrate old user data if needed
+          if (!userData.avatarType) {
+            userData.avatarType = 'initials';
+            userData.avatar = userData.avatar || generateAvatarColor();
+            userData.joinedAt = userData.joinedAt || new Date().toISOString();
+            userData.lastActive = new Date().toISOString();
+          }
+          
+          await minLoadingTime;
+          setUser(userData);
+        } else {
+          await minLoadingTime;
         }
-        setUser(userData);
       } catch (error) {
         console.error('Error loading user data:', error);
-        // Clear corrupted data
         localStorage.removeItem('chatterbox-user');
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+
+    initializeUser();
   }, []);
 
   // Save user to localStorage whenever user changes
   useEffect(() => {
-    if (user) {
+    if (user && !isLoading) {
       localStorage.setItem('chatterbox-user', JSON.stringify(user));
     }
-  }, [user]);
+  }, [user, isLoading]);
 
   const setUsername = (username: string) => {
     const trimmedUsername = username.trim();
@@ -130,6 +146,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <UserContext.Provider value={{
       user,
+      isLoading,
       setUsername,
       setUserAvatar,
       setUserStatus,

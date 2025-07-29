@@ -151,7 +151,7 @@
   color: var(--text-primary);
 }
 
-/* Avatar Selector Styles */
+/* Updated Avatar Selector Styles */
 .avatar-selector {
   display: flex;
   flex-direction: column;
@@ -173,49 +173,40 @@
 .avatar-options {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  align-items: center;
+  gap: 1rem;
 }
 
 .option-section {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.upload-actions {
+  display: flex;
   gap: 0.75rem;
 }
 
-.option-section h4 {
+.upload-btn.primary {
+  background-color: var(--brand-blue);
   color: var(--text-primary);
-  font-size: 0.85rem;
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  margin: 0;
-}
-
-.color-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 0.5rem;
-  max-width: 240px;
-}
-
-.color-option {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid transparent;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.color-option:hover {
-  transform: scale(1.1);
-  border-color: var(--text-primary);
+.upload-btn.primary:hover:not(:disabled) {
+  background-color: #4752C4;
 }
 
-.color-option.selected {
-  border-color: var(--brand-blue);
-  transform: scale(1.2);
-}
-
-.upload-btn, .generate-btn {
+.upload-btn.secondary {
   background-color: var(--bg-hover);
   color: var(--text-primary);
   border: 1px solid var(--bg-hover);
@@ -224,16 +215,45 @@
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
-  align-self: flex-start;
 }
 
-.upload-btn:hover, .generate-btn:hover {
+.upload-btn.secondary:hover:not(:disabled) {
   background-color: var(--bg-dark);
   border-color: var(--brand-blue);
 }
 
-.upload-info, .generate-info {
+.remove-btn {
+  background-color: transparent;
+  color: var(--error-red);
+  border: 1px solid var(--error-red);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-btn:hover:not(:disabled) {
+  background-color: var(--error-red);
+  color: var(--text-primary);
+}
+
+.upload-btn:disabled {
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  border-color: var(--bg-hover);
+}
+
+.upload-info {
   font-size: 0.75rem;
   color: var(--text-muted);
   margin: 0;
+}
+
+.initials-info {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
 }

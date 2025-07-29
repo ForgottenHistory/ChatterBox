@@ -141,8 +141,8 @@ const UserSetupModal: React.FC<UserSetupModalProps> = ({ isOpen }) => {
         ) : (
           <>
             <div className="modal-header">
-              <h2>Choose Your Avatar</h2>
-              <p>Personalize your profile with an avatar</p>
+              <h2>Set Your Avatar</h2>
+              <p>Upload a profile picture or keep your colorful initials</p>
             </div>
 
             {tempUser && (
@@ -158,12 +158,6 @@ const UserSetupModal: React.FC<UserSetupModalProps> = ({ isOpen }) => {
                 onClick={handleBackToUsername}
               >
                 Back
-              </button>
-              <button 
-                className="secondary-button"
-                onClick={handleSkipAvatar}
-              >
-                Skip
               </button>
               <button 
                 className="confirm-button"
