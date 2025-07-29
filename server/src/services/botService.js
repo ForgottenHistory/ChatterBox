@@ -48,6 +48,7 @@ class BotService {
   constructor() {
     this.bots = this.initializeBots();
     this.responseDelay = 1000; // 1 second delay to make it feel natural
+    console.log('BotService initialized with', this.bots.length, 'bots');
   }
 
   // Initialize bots with proper Bot interface
@@ -77,22 +78,36 @@ class BotService {
 
   // Check if a message should trigger bot responses
   shouldRespond(message) {
+    console.log('Checking if message should trigger bots:', message);
     const messageText = message.toLowerCase();
     const respondingBots = [];
 
     this.bots.forEach(bot => {
-      const shouldTrigger = bot.triggers.some(trigger =>
-        messageText.includes(trigger.toLowerCase())
-      );
+      console.log(`Checking bot ${bot.username} with triggers:`, bot.triggers);
+      
+      const shouldTrigger = bot.triggers.some(trigger => {
+        const matches = messageText.includes(trigger.toLowerCase());
+        console.log(`  Trigger "${trigger}" matches: ${matches}`);
+        return matches;
+      });
 
       if (shouldTrigger) {
-        // Use bot's individual response chance
-        if (Math.random() < bot.responseChance) {
+        console.log(`Bot ${bot.username} should trigger. Rolling dice with chance ${bot.responseChance}`);
+        const roll = Math.random();
+        console.log(`  Rolled: ${roll}, needed: ${bot.responseChance}`);
+        
+        if (roll < bot.responseChance) {
+          console.log(`  Bot ${bot.username} will respond!`);
           respondingBots.push(bot);
+        } else {
+          console.log(`  Bot ${bot.username} chose not to respond this time`);
         }
+      } else {
+        console.log(`Bot ${bot.username} not triggered`);
       }
     });
 
+    console.log('Final responding bots:', respondingBots.map(b => b.username));
     return respondingBots;
   }
 
@@ -114,21 +129,39 @@ class BotService {
 
   // Process a user message and return bot responses
   async processMessage(userMessage, room) {
+    console.log('Processing message:', userMessage, 'in room:', room);
+    
     // Handle both legacy and new message formats
     const messageContent = userMessage.content || userMessage.message || userMessage;
+    console.log('Message content extracted:', messageContent);
 
     const respondingBots = this.shouldRespond(messageContent);
     const responses = [];
 
     for (const bot of respondingBots) {
+      console.log(`Generating response for bot: ${bot.username}`);
+      
       // Add a small delay between bot responses
       await this.delay(this.responseDelay + Math.random() * 2000);
 
       const response = this.generateMessage(bot, room);
+      console.log('Generated response:', response);
       responses.push(response);
     }
 
+    console.log('Total responses generated:', responses.length);
     return responses;
+  }
+
+  // Update bot status (for admin features)
+  updateBotStatus(botId, status) {
+    const bot = this.getBotById(botId);
+    if (bot) {
+      bot.status = status;
+      bot.lastActive = new Date().toISOString();
+      return true;
+    }
+    return false;
   }
 
   delay(ms) {
