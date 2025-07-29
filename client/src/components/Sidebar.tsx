@@ -109,9 +109,6 @@ const Sidebar: React.FC = () => {
                     {bot.username}
                     <span className="bot-badge">BOT</span>
                   </div>
-                  <div className="bot-personality">
-                    {capitalizePersonality(bot.personality)}
-                  </div>
                 </div>
               </div>
             ))
