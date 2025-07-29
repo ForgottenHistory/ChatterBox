@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useUser } from '../contexts/userContext';
+import UserAvatar from './UserAvatar';
 
 const UserPanel: React.FC = () => {
   const { user, setUsername, setUserStatus } = useUser();
@@ -31,22 +32,9 @@ const UserPanel: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'var(--success-green)';
-      case 'away': return 'var(--warning-yellow)';
-      case 'offline': return 'var(--text-muted)';
-      default: return 'var(--success-green)';
-    }
-  };
-
-  const getUserInitials = (username: string) => {
-    return username
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const handleAvatarClick = () => {
+    // TODO: Open avatar settings modal
+    console.log('Avatar clicked - will open settings modal');
   };
 
   if (!user) return null;
@@ -54,13 +42,12 @@ const UserPanel: React.FC = () => {
   return (
     <div className="sidebar-footer">
       <div className="user-info">
-        <div className="user-avatar">
-          <div 
-            className="status-indicator" 
-            style={{ backgroundColor: getStatusColor(user.status) }}
-          />
-          {getUserInitials(user.username)}
-        </div>
+        <UserAvatar 
+          user={user} 
+          size="medium" 
+          showStatus={true}
+          onClick={handleAvatarClick}
+        />
         
         <div className="user-details">
           {isEditing ? (

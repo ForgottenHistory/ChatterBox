@@ -2,14 +2,14 @@ import React from 'react';
 import { UserProvider, useUser } from './contexts/userContext';
 import Chat from './components/Chat';
 import Sidebar from './components/Sidebar';
-import UsernameModal from './components/usernameModal';
+import UserSetupModal from './components/UserSetupModal';
 
 const AppContent: React.FC = () => {
   const { isUsernameSet } = useUser();
 
   return (
     <div className="app">
-      <UsernameModal isOpen={!isUsernameSet} />
+      <UserSetupModal isOpen={!isUsernameSet} />
       
       <header className="app-header">
         <div className="header-left">

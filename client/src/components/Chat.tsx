@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useUser } from '../contexts/userContext';
+import UserAvatar from './UserAvatar';
 
 interface Message {
   id: string;
@@ -8,10 +9,13 @@ interface Message {
   message: string;
   timestamp: string;
   isBot?: boolean;
+  userId?: string;
+  userAvatar?: string;
+  userAvatarType?: 'initials' | 'uploaded' | 'generated';
 }
 
 const Chat: React.FC = () => {
-  const { user } = useUser();
+  const { user, updateLastActive } = useUser();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
@@ -57,11 +61,15 @@ const Chat: React.FC = () => {
         username: user.username,
         message: currentMessage,
         timestamp: new Date().toLocaleTimeString(),
-        isBot: false
+        isBot: false,
+        userId: user.id,
+        userAvatar: user.avatar,
+        userAvatarType: user.avatarType
       };
 
       socket.emit('send_message', { ...messageData, room: 'general' });
       setCurrentMessage('');
+      updateLastActive();
     }
   };
 
@@ -70,6 +78,18 @@ const Chat: React.FC = () => {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const createUserFromMessage = (msg: Message) => {
+    return {
+      id: msg.userId || `temp-${msg.username}`,
+      username: msg.username,
+      avatar: msg.userAvatar || '#5865F2',
+      avatarType: msg.userAvatarType || 'initials' as const,
+      status: 'online' as const,
+      joinedAt: new Date().toISOString(),
+      lastActive: new Date().toISOString()
+    };
   };
 
   return (
@@ -85,6 +105,13 @@ const Chat: React.FC = () => {
         {messages.map((msg) => (
           <div key={msg.id} className={`message ${msg.isBot ? 'bot-message' : 'user-message'}`}>
             <div className="message-header">
+              {!msg.isBot && (
+                <UserAvatar 
+                  user={createUserFromMessage(msg)}
+                  size="small"
+                  showStatus={false}
+                />
+              )}
               <span className={`username ${msg.isBot ? 'bot-username' : ''}`}>
                 {msg.username}
                 {msg.isBot && <span className="bot-badge">BOT</span>}

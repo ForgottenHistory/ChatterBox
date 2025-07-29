@@ -1,17 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface User {
+export interface User {
   id: string;
   username: string;
-  avatar?: string;
+  avatar: string;
+  avatarType: 'initials' | 'uploaded' | 'generated';
   status: 'online' | 'away' | 'offline';
+  joinedAt: string;
+  lastActive: string;
 }
 
 interface UserContextType {
   user: User | null;
   setUsername: (username: string) => void;
+  setUserAvatar: (avatar: string, type: User['avatarType']) => void;
   setUserStatus: (status: User['status']) => void;
+  updateLastActive: () => void;
   isUsernameSet: boolean;
+  clearUser: () => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -19,36 +25,104 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
+  // Generate a random color for initials avatar
+  const generateAvatarColor = (): string => {
+    const colors = [
+      '#5865F2', '#57F287', '#FEE75C', '#ED4245',
+      '#7289DA', '#43B581', '#FAA61A', '#F04747',
+      '#9C84EF', '#EB459E', '#00D9FF', '#FFA500'
+    ];
+    return colors[Math.floor(Math.random() * colors.length)];
+  };
+
+  // Load user from localStorage on app start
   useEffect(() => {
-    // Load user from localStorage on app start
     const savedUser = localStorage.getItem('chatterbox-user');
     if (savedUser) {
       try {
         const userData = JSON.parse(savedUser);
+        // Migrate old user data if needed
+        if (!userData.avatarType) {
+          userData.avatarType = 'initials';
+          userData.avatar = userData.avatar || generateAvatarColor();
+          userData.joinedAt = userData.joinedAt || new Date().toISOString();
+          userData.lastActive = new Date().toISOString();
+        }
         setUser(userData);
       } catch (error) {
         console.error('Error loading user data:', error);
+        // Clear corrupted data
+        localStorage.removeItem('chatterbox-user');
       }
     }
   }, []);
 
+  // Save user to localStorage whenever user changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('chatterbox-user', JSON.stringify(user));
+    }
+  }, [user]);
+
   const setUsername = (username: string) => {
-    const userData: User = {
-      id: user?.id || `user-${Date.now()}`,
-      username: username.trim(),
-      status: 'online'
-    };
+    const trimmedUsername = username.trim();
+    const now = new Date().toISOString();
     
-    setUser(userData);
-    localStorage.setItem('chatterbox-user', JSON.stringify(userData));
+    if (user) {
+      // Update existing user
+      setUser(prev => prev ? {
+        ...prev,
+        username: trimmedUsername,
+        lastActive: now
+      } : null);
+    } else {
+      // Create new user
+      const userData: User = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        username: trimmedUsername,
+        avatar: generateAvatarColor(),
+        avatarType: 'initials',
+        status: 'online',
+        joinedAt: now,
+        lastActive: now
+      };
+      setUser(userData);
+    }
+  };
+
+  const setUserAvatar = (avatar: string, type: User['avatarType']) => {
+    if (user) {
+      setUser(prev => prev ? {
+        ...prev,
+        avatar,
+        avatarType: type,
+        lastActive: new Date().toISOString()
+      } : null);
+    }
   };
 
   const setUserStatus = (status: User['status']) => {
     if (user) {
-      const updatedUser = { ...user, status };
-      setUser(updatedUser);
-      localStorage.setItem('chatterbox-user', JSON.stringify(updatedUser));
+      setUser(prev => prev ? {
+        ...prev,
+        status,
+        lastActive: new Date().toISOString()
+      } : null);
     }
+  };
+
+  const updateLastActive = () => {
+    if (user) {
+      setUser(prev => prev ? {
+        ...prev,
+        lastActive: new Date().toISOString()
+      } : null);
+    }
+  };
+
+  const clearUser = () => {
+    setUser(null);
+    localStorage.removeItem('chatterbox-user');
   };
 
   const isUsernameSet = user !== null && user.username.length > 0;
@@ -57,8 +131,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <UserContext.Provider value={{
       user,
       setUsername,
+      setUserAvatar,
       setUserStatus,
-      isUsernameSet
+      updateLastActive,
+      isUsernameSet,
+      clearUser
     }}>
       {children}
     </UserContext.Provider>

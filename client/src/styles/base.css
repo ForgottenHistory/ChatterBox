@@ -91,3 +91,87 @@ body {
   overflow: hidden;
   background-color: var(--bg-dark);
 }
+
+/* User Avatar Styles */
+.user-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.user-avatar.clickable {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.user-avatar.clickable:hover {
+  transform: scale(1.05);
+}
+
+.avatar-small {
+  width: 24px;
+  height: 24px;
+  font-size: 0.7rem;
+}
+
+.avatar-medium {
+  width: 32px;
+  height: 32px;
+  font-size: 0.8rem;
+}
+
+.avatar-large {
+  width: 64px;
+  height: 64px;
+  font-size: 1.2rem;
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-generated {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.status-indicator {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid var(--bg-darker);
+}
+
+.avatar-small .status-indicator {
+  width: 8px;
+  height: 8px;
+  bottom: -1px;
+  right: -1px;
+  border-width: 2px;
+}
+
+.avatar-medium .status-indicator {
+  width: 12px;
+  height: 12px;
+  bottom: -2px;
+  right: -2px;
+  border-width: 3px;
+}
+
+.avatar-large .status-indicator {
+  width: 18px;
+  height: 18px;
+  bottom: -3px;
+  right: -3px;
+  border-width: 4px;
+}

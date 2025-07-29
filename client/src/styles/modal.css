@@ -120,3 +120,120 @@
   color: var(--text-muted);
   font-size: 0.8rem;
 }
+
+/* User Setup Modal Specific Styles */
+.user-setup-modal {
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.secondary-button {
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.secondary-button:hover {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+/* Avatar Selector Styles */
+.avatar-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.avatar-preview {
+  text-align: center;
+}
+
+.avatar-preview h4 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.avatar-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.option-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.option-section h4 {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.5rem;
+  max-width: 240px;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.color-option:hover {
+  transform: scale(1.1);
+  border-color: var(--text-primary);
+}
+
+.color-option.selected {
+  border-color: var(--brand-blue);
+  transform: scale(1.2);
+}
+
+.upload-btn, .generate-btn {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--bg-hover);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.upload-btn:hover, .generate-btn:hover {
+  background-color: var(--bg-dark);
+  border-color: var(--brand-blue);
+}
+
+.upload-info, .generate-info {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+}
