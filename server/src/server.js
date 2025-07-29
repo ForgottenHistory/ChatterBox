@@ -162,13 +162,36 @@ io.on('connection', (socket) => {
     // Process message for bot responses (only if it's not from a bot)
     if (!data.isBot) {
       try {
-        const botResponses = await botService.processMessage(data, data.room);
+        // Create a message object that the bot service expects
+        const messageForBots = {
+          content: data.message, // Use 'message' field from the legacy format
+          author: {
+            id: data.userId,
+            username: data.username
+          }
+        };
+        
+        const botResponses = await botService.processMessage(messageForBots, data.room);
         
         // Send each bot response with a delay
         botResponses.forEach((response, index) => {
           setTimeout(() => {
             console.log('Bot response:', response);
-            io.to(data.room).emit('receive_message', response);
+            
+            // Convert new message format to legacy for socket
+            const legacyResponse = {
+              id: response.id,
+              username: response.author.username,
+              message: response.content,
+              timestamp: new Date(response.timestamp).toLocaleTimeString(),
+              isBot: true,
+              userId: response.author.id,
+              userAvatar: response.author.avatar,
+              userAvatarType: response.author.avatarType,
+              room: response.room
+            };
+            
+            io.to(data.room).emit('receive_message', legacyResponse);
           }, index * 500); // Stagger multiple bot responses
         });
       } catch (error) {

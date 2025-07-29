@@ -1,14 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-export interface User {
-  id: string;
-  username: string;
-  avatar: string;
-  avatarType: 'initials' | 'uploaded' | 'generated';
-  status: 'online' | 'away' | 'offline';
-  joinedAt: string;
-  lastActive: string;
-}
+import { User, ParticipantStatus, AvatarType } from '../types';
 
 interface UserContextType {
   user: User | null;
@@ -17,8 +8,8 @@ interface UserContextType {
   isSetupComplete: boolean;
   createUser: (username: string) => void;
   completeSetup: () => void;
-  setUserAvatar: (avatar: string, type: User['avatarType']) => void;
-  setUserStatus: (status: User['status']) => void;
+  setUserAvatar: (avatar: string, type: AvatarType) => void;
+  setUserStatus: (status: ParticipantStatus) => void;
   updateLastActive: () => void;
   clearUser: () => void;
 }
@@ -52,7 +43,12 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (savedUser) {
           const userData = JSON.parse(savedUser);
-          setUser(userData);
+          // Ensure the user has the correct type
+          const typedUser: User = {
+            ...userData,
+            type: 'user'
+          };
+          setUser(typedUser);
           setIsSetupComplete(savedSetupComplete === 'true');
         }
       } catch (error) {
@@ -84,6 +80,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const createUser = (username: string) => {
     const now = new Date().toISOString();
     const newUser: User = {
+      type: 'user',
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       username: username.trim(),
       avatar: generateAvatarColor(),
@@ -95,7 +92,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const setUserAvatar = (avatar: string, type: User['avatarType']) => {
+  const setUserAvatar = (avatar: string, type: AvatarType) => {
     if (user) {
       setUser(prev => prev ? {
         ...prev,
@@ -106,7 +103,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const setUserStatus = (status: User['status']) => {
+  const setUserStatus = (status: ParticipantStatus) => {
     if (user) {
       setUser(prev => prev ? {
         ...prev,

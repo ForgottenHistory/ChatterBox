@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { useUser, User } from '../contexts/userContext';
+import { useUser } from '../contexts/userContext';
+import { User } from '../types';
 import UserAvatar from './UserAvatar';
 import avatarService from '../services/avatarService';
 

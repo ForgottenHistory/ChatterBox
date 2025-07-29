@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useUser } from '../contexts/userContext';
+import { User } from '../types';
 import UserAvatar from './UserAvatar';
 import Button from './ui/Button';
 import Input from './ui/Input';

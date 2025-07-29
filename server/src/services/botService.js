@@ -1,4 +1,5 @@
-const bots = [
+// Bot configurations with avatar colors
+const botConfigs = [
   {
     id: 'chatty-bot',
     name: 'ChattyBot',
@@ -9,7 +10,9 @@ const bots = [
       "Hello! Great to see some activity in here!",
       "Hi! I'm ChattyBot, always ready for a good conversation!",
       "Hey! What's on your mind today?"
-    ]
+    ],
+    avatar: '#43B581', // Green for friendly
+    responseChance: 0.7
   },
   {
     id: 'sarcastic-ai',
@@ -21,7 +24,9 @@ const bots = [
       "Thanks? How surprising, someone with manners!",
       "Well, well, well... look who needs assistance.",
       "Sure, because helping humans is *exactly* what I live for."
-    ]
+    ],
+    avatar: '#F04747', // Red for sarcastic
+    responseChance: 0.6
   },
   {
     id: 'helper-bot',
@@ -33,29 +38,56 @@ const bots = [
       "Happy to help! Feel free to ask me anything.",
       "How can I assist you today? I'm at your service!",
       "Always ready to lend a helping hand! 🤝"
-    ]
+    ],
+    avatar: '#5865F2', // Blue for helpful
+    responseChance: 0.8
   }
 ];
 
 class BotService {
   constructor() {
-    this.bots = bots;
+    this.bots = this.initializeBots();
     this.responseDelay = 1000; // 1 second delay to make it feel natural
   }
 
-  // Check if a message should trigger a bot response
+  // Initialize bots with proper Bot interface
+  initializeBots() {
+    const now = new Date().toISOString();
+
+    return botConfigs.map(config => ({
+      type: 'bot',
+      id: config.id,
+      username: config.name,
+      avatar: config.avatar,
+      avatarType: 'initials',
+      status: 'online',
+      joinedAt: now,
+      lastActive: now,
+      personality: config.personality,
+      triggers: config.triggers,
+      responses: config.responses,
+      responseChance: config.responseChance
+    }));
+  }
+
+  // Get bot by ID
+  getBotById(botId) {
+    return this.bots.find(bot => bot.id === botId);
+  }
+
+  // Check if a message should trigger bot responses
   shouldRespond(message) {
     const messageText = message.toLowerCase();
     const respondingBots = [];
 
     this.bots.forEach(bot => {
-      const shouldTrigger = bot.triggers.some(trigger => 
+      const shouldTrigger = bot.triggers.some(trigger =>
         messageText.includes(trigger.toLowerCase())
       );
 
       if (shouldTrigger) {
-        // Random chance to respond (70% chance)
-        if (Math.random() < 0.7) {
+        // Use bot's individual response chance
+        if (Math.random() < bot.responseChance) {
           respondingBots.push(bot);
         }
       }
@@ -64,32 +96,35 @@ class BotService {
     return respondingBots;
   }
 
-  // Generate a bot response
-  generateResponse(bot) {
+  // Generate a message from a bot
+  generateMessage(bot, room) {
     const randomResponse = bot.responses[Math.floor(Math.random() * bot.responses.length)];
-    
+
     return {
-      id: Date.now().toString() + '-' + bot.id,
-      username: bot.name,
-      message: randomResponse,
-      timestamp: new Date().toLocaleTimeString(),
-      isBot: true,
-      botId: bot.id,
-      personality: bot.personality
+      id: `${Date.now()}-${bot.id}-${Math.random().toString(36).substr(2, 9)}`,
+      content: randomResponse,
+      timestamp: new Date().toISOString(),
+      room: room,
+      author: {
+        ...bot,
+        lastActive: new Date().toISOString()
+      }
     };
   }
 
   // Process a user message and return bot responses
   async processMessage(userMessage, room) {
-    const respondingBots = this.shouldRespond(userMessage.message);
+    // Handle both legacy and new message formats
+    const messageContent = userMessage.content || userMessage.message || userMessage;
+
+    const respondingBots = this.shouldRespond(messageContent);
     const responses = [];
 
     for (const bot of respondingBots) {
       // Add a small delay between bot responses
       await this.delay(this.responseDelay + Math.random() * 2000);
-      
-      const response = this.generateResponse(bot);
-      response.room = room;
+
+      const response = this.generateMessage(bot, room);
       responses.push(response);
     }
 
@@ -100,14 +135,26 @@ class BotService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Get all bots info
+  // Get all bots (for sidebar display)
   getAllBots() {
     return this.bots.map(bot => ({
       id: bot.id,
-      name: bot.name,
+      username: bot.username,
       personality: bot.personality,
-      status: 'online' // For now, all bots are online
+      status: bot.status,
+      avatar: bot.avatar,
+      avatarType: bot.avatarType
     }));
+  }
+
+  // Get initials for a bot (used for avatar display)
+  getBotInitials(botName) {
+    return botName
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   }
 }
 

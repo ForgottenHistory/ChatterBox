@@ -1,8 +1,8 @@
 import React from 'react';
-import { User } from '../contexts/userContext';
+import { Participant, ParticipantStatus } from '../types';
 
 interface UserAvatarProps {
-  user: User;
+  user: Participant;
   size?: 'small' | 'medium' | 'large' | 'extra-large';
   showStatus?: boolean;
   onClick?: () => void;
@@ -25,7 +25,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
       .slice(0, 2);
   };
 
-  const getStatusColor = (status: User['status']): string => {
+  const getStatusColor = (status: ParticipantStatus): string => {
     switch (status) {
       case 'online': return 'var(--success-green)';
       case 'away': return 'var(--warning-yellow)';
@@ -102,6 +102,14 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     return 'transparent';
   };
 
+  // Get participant type for title
+  const getParticipantTypeLabel = (participant: Participant): string => {
+    if (participant.type === 'bot') {
+      return `Bot - ${participant.personality}`;
+    }
+    return 'User';
+  };
+
   return (
     <div 
       className={`user-avatar ${getSizeClass(size)} ${onClick ? 'clickable' : ''} ${className}`}
@@ -111,7 +119,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
       }}
       data-type={user.avatarType}
       onClick={onClick}
-      title={`${user.username} (${user.status})`}
+      title={`${user.username} (${user.status}) - ${getParticipantTypeLabel(user)}`}
     >
       {renderAvatarContent()}
       
