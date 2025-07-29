@@ -71,54 +71,54 @@ const AvatarSelector: React.FC<AvatarSelectorProps> = ({ currentUser, onAvatarCh
 
   return (
     <div className="avatar-selector">
-      <div className="avatar-preview">
+      <div className="avatar-preview-section">
         <h4>Profile Picture</h4>
-        <UserAvatar user={previewUser} size="large" showStatus={false} />
+        <div className="avatar-display">
+          <UserAvatar user={previewUser} size="extra-large" showStatus={false} />
+        </div>
       </div>
 
-      <div className="avatar-options">
-        <div className="option-section">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-            disabled={isUploading}
-          />
-          
-          {selectedType === 'uploaded' ? (
-            <div className="upload-actions">
-              <button 
-                className="upload-btn secondary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-              >
-                {isUploading ? 'Uploading...' : 'Change Image'}
-              </button>
-              <button 
-                className="remove-btn"
-                onClick={handleRemoveAvatar}
-                disabled={isUploading}
-              >
-                Remove
-              </button>
-            </div>
-          ) : (
+      <div className="avatar-controls">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+          disabled={isUploading}
+        />
+        
+        {selectedType === 'uploaded' ? (
+          <div className="upload-actions">
             <button 
-              className="upload-btn primary"
+              className="upload-btn secondary"
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
             >
-              {isUploading ? 'Uploading...' : 'Upload Image'}
+              {isUploading ? 'Uploading...' : 'Change Image'}
             </button>
-          )}
-          
-          <p className="upload-info">Max 2MB • JPG, PNG, GIF, WebP</p>
-          {selectedType === 'initials' && (
-            <p className="initials-info">Or keep your colorful initials avatar</p>
-          )}
-        </div>
+            <button 
+              className="remove-btn"
+              onClick={handleRemoveAvatar}
+              disabled={isUploading}
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <button 
+            className="upload-btn primary"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+          >
+            {isUploading ? 'Uploading...' : 'Upload Image'}
+          </button>
+        )}
+        
+        <p className="upload-info">Max 2MB • JPG, PNG, GIF, WebP</p>
+        {selectedType === 'initials' && (
+          <p className="initials-info">Or keep your colorful initials</p>
+        )}
       </div>
     </div>
   );

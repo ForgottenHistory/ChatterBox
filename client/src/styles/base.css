@@ -114,22 +114,38 @@ body {
   transform: scale(1.05);
 }
 
-.avatar-small {
+.user-avatar.avatar-small {
   width: 24px;
   height: 24px;
   font-size: 0.7rem;
 }
 
-.avatar-medium {
+.user-avatar.avatar-medium {
   width: 32px;
   height: 32px;
   font-size: 0.8rem;
 }
 
-.avatar-large {
+.user-avatar.avatar-large {
   width: 64px;
   height: 64px;
   font-size: 1.2rem;
+}
+
+/* Make sure extra-large overrides the base user-avatar class */
+.user-avatar.avatar-extra-large {
+  width: 160px !important;
+  height: 160px !important;
+  font-size: 3rem !important;
+  font-weight: 700;
+}
+
+.user-avatar.avatar-extra-large .status-indicator {
+  width: 32px;
+  height: 32px;
+  bottom: -6px;
+  right: -6px;
+  border-width: 8px;
 }
 
 .avatar-image {

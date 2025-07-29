@@ -3,7 +3,7 @@ import { User } from '../contexts/userContext';
 
 interface UserAvatarProps {
   user: User;
-  size?: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large' | 'extra-large';
   showStatus?: boolean;
   onClick?: () => void;
   className?: string;
@@ -38,6 +38,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     switch (size) {
       case 'small': return 'avatar-small';
       case 'large': return 'avatar-large';
+      case 'extra-large': return 'avatar-extra-large';
       default: return 'avatar-medium';
     }
   };
