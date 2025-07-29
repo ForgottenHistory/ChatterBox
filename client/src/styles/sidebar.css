@@ -122,6 +122,7 @@
   font-weight: 500;
   color: var(--text-primary);
   margin-bottom: 0.1rem;
+  padding-left: 7px;
 }
 
 .bot-badge {

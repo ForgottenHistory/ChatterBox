@@ -101,8 +101,17 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   border-radius: 50%;
-  overflow: hidden;
   flex-shrink: 0;
+}
+
+.user-avatar-content {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .user-avatar.clickable {
@@ -172,36 +181,6 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-}
-
-.status-indicator {
-  position: absolute;
-  border-radius: 50%;
-  border: 3px solid var(--bg-darker);
-}
-
-.avatar-small .status-indicator {
-  width: 8px;
-  height: 8px;
-  bottom: -1px;
-  right: -1px;
-  border-width: 2px;
-}
-
-.avatar-medium .status-indicator {
-  width: 12px;
-  height: 12px;
-  bottom: -2px;
-  right: -2px;
-  border-width: 3px;
-}
-
-.avatar-large .status-indicator {
-  width: 18px;
-  height: 18px;
-  bottom: -3px;
-  right: -3px;
-  border-width: 4px;
 }
 
 /* Loading Screen Styles */
@@ -415,4 +394,43 @@ body {
   justify-content: space-between;
   gap: 1rem;
   width: 100%;
+}
+
+.status-indicator {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid var(--bg-darker);
+  z-index: 10; /* Ensure it's above the avatar */
+}
+
+.user-avatar.avatar-small .status-indicator {
+  width: 8px;
+  height: 8px;
+  bottom: -2px;
+  right: -2px;
+  border-width: 2px;
+}
+
+.user-avatar.avatar-medium .status-indicator {
+  width: 12px;
+  height: 12px;
+  bottom: -3px;
+  right: -3px;
+  border-width: 2px;
+}
+
+.user-avatar.avatar-large .status-indicator {
+  width: 18px;
+  height: 18px;
+  bottom: -4px;
+  right: -4px;
+  border-width: 3px;
+}
+
+.user-avatar.avatar-extra-large .status-indicator {
+  width: 32px;
+  height: 32px;
+  bottom: -8px;
+  right: -8px;
+  border-width: 6px;
 }

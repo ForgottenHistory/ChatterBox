@@ -1,5 +1,32 @@
 import React from 'react';
-import { Participant, ParticipantStatus } from '../types';
+
+type ParticipantStatus = 'online' | 'away' | 'offline';
+type AvatarType = 'initials' | 'uploaded' | 'generated';
+type BotPersonality = 'friendly' | 'sarcastic' | 'helpful' | 'mysterious' | 'energetic';
+
+interface BaseParticipant {
+  id: string;
+  username: string;
+  avatar: string;
+  avatarType: AvatarType;
+  status: ParticipantStatus;
+  joinedAt: string;
+  lastActive: string;
+}
+
+interface User extends BaseParticipant {
+  type: 'user';
+}
+
+interface Bot extends BaseParticipant {
+  type: 'bot';
+  personality: BotPersonality;
+  triggers: string[];
+  responses: string[];
+  responseChance: number;
+}
+
+type Participant = User | Bot;
 
 interface UserAvatarProps {
   user: Participant;
@@ -16,6 +43,11 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   onClick,
   className = '' 
 }) => {
+  // Handle case where user is undefined
+  if (!user) {
+    return null;
+  }
+
   const getUserInitials = (username: string): string => {
     return username
       .split(' ')
@@ -113,15 +145,19 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   return (
     <div 
       className={`user-avatar ${getSizeClass(size)} ${onClick ? 'clickable' : ''} ${className}`}
-      style={{ 
-        backgroundColor: getBackgroundColor(),
-        color: user.avatarType === 'initials' ? 'var(--text-primary)' : 'transparent'
-      }}
-      data-type={user.avatarType}
       onClick={onClick}
       title={`${user.username} (${user.status}) - ${getParticipantTypeLabel(user)}`}
     >
-      {renderAvatarContent()}
+      <div 
+        className="user-avatar-content"
+        style={{ 
+          backgroundColor: getBackgroundColor(),
+          color: user.avatarType === 'initials' ? 'var(--text-primary)' : 'transparent'
+        }}
+        data-type={user.avatarType}
+      >
+        {renderAvatarContent()}
+      </div>
       
       {showStatus && (
         <div 

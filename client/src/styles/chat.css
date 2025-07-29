@@ -50,7 +50,6 @@
 
 .message {
   margin-bottom: 1rem;
-  padding: 0.5rem 0.75rem;
   border-radius: 4px;
   transition: background-color 0.2s;
 }
@@ -159,9 +158,10 @@
 }
 
 .user-message .message-content {
-  margin-left: 1.5rem; /* Indent user messages to align with avatar */
+  margin-left: 2.5rem;
+  /* Indent user messages to align with avatar */
 }
 
 .bot-message .message-content {
-  margin-left: 0; /* Bots don't have avatars, so no indent */
+  margin-left: 2.5rem;
 }
