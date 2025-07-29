@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useUser } from '../contexts/userContext';
 import UserAvatar from './UserAvatar';
+import Button from './ui/Button';
 
 interface Message {
   id: string;
@@ -127,15 +128,20 @@ const Chat: React.FC = () => {
       <div className="input-container">
         <input
           type="text"
-          placeholder={`Message #general`}
+          placeholder="Message #general"
           value={currentMessage}
           onChange={(e) => setCurrentMessage(e.target.value)}
           onKeyPress={handleKeyPress}
           className="message-input"
         />
-        <button onClick={sendMessage} className="send-button" disabled={!currentMessage.trim()}>
+        <Button
+          onClick={sendMessage}
+          variant="primary"
+          size="medium"
+          disabled={!currentMessage.trim()}
+        >
           Send
-        </button>
+        </Button>
       </div>
     </div>
   );

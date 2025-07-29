@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { useUser } from '../contexts/userContext';
 import UserAvatar from './UserAvatar';
+import Button from './ui/Button';
+import Input from './ui/Input';
+import Modal from './ui/Modal';
 import avatarService from '../services/avatarService';
 
 const UserSetup: React.FC = () => {
@@ -45,17 +48,12 @@ const UserSetup: React.FC = () => {
     setStep('avatar');
   };
 
-  const handleAvatarComplete = () => {
-    completeSetup();
-  };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
     setUploadError(null);
 
-    // Validate file
     const validation = avatarService.validateFile(file);
     if (!validation.valid) {
       setUploadError(validation.error || 'Invalid file');
@@ -79,57 +77,49 @@ const UserSetup: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleBackToUsername = () => {
-    setStep('username');
-  };
-
   if (step === 'username') {
     return (
-      <div className="setup-overlay">
-        <div className="setup-container">
-          <div className="setup-header">
-            <h2>Create Your Profile</h2>
-            <p>Choose a username to get started</p>
-          </div>
+      <Modal
+        isOpen={true}
+        title="Create Your Profile"
+        subtitle="Choose a username to get started"
+        size="small"
+      >
+        <form onSubmit={handleUsernameSubmit} className="setup-form">
+          <Input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your username..."
+            error={!!error}
+            errorMessage={error}
+            maxLength={20}
+            autoFocus
+            label="Username"
+          />
 
-          <form onSubmit={handleUsernameSubmit} className="setup-form">
-            <div className="input-group">
-              <label htmlFor="username">Username</label>
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username..."
-                className={`setup-input ${error ? 'error' : ''}`}
-                maxLength={20}
-                autoFocus
-              />
-              {error && <span className="error-message">{error}</span>}
-            </div>
-
-            <button 
-              type="submit" 
-              className="setup-button"
-              disabled={!username.trim()}
-            >
-              Continue
-            </button>
-          </form>
-        </div>
-      </div>
+          <Button
+            type="submit"
+            variant="primary"
+            size="large"
+            disabled={!username.trim()}
+          >
+            Continue
+          </Button>
+        </form>
+      </Modal>
     );
   }
 
-  // Avatar step
   return (
-    <div className="setup-overlay">
-      <div className="setup-container avatar-step">
-        <div className="setup-header">
-          <h2>Choose Your Avatar</h2>
-          <p>Upload a picture or keep your colorful initials</p>
-        </div>
-
+    <Modal
+      isOpen={true}
+      title="Choose Your Avatar"
+      subtitle="Upload a picture or keep your colorful initials"
+      size="medium"
+    >
+      <div className="avatar-setup-content">
         <div className="avatar-preview">
           {user && (
             <UserAvatar 
@@ -156,34 +146,38 @@ const UserSetup: React.FC = () => {
             </div>
           )}
           
-          <button 
-            className="upload-button"
+          <Button
+            variant="secondary"
+            size="medium"
             onClick={handleUploadClick}
             disabled={isUploading}
+            className="upload-button-spacing"
           >
             {isUploading ? 'Uploading...' : 'Upload Custom Image'}
-          </button>
+          </Button>
           
           <p className="upload-info">Max 2MB • JPG, PNG, GIF, WebP</p>
           <p className="avatar-info">You can always change this later in settings</p>
         </div>
 
         <div className="setup-actions">
-          <button 
-            className="setup-button secondary"
-            onClick={handleBackToUsername}
+          <Button
+            variant="secondary"
+            size="medium"
+            onClick={() => setStep('username')}
           >
             Back
-          </button>
-          <button 
-            className="setup-button"
-            onClick={handleAvatarComplete}
+          </Button>
+          <Button
+            variant="primary"
+            size="medium"
+            onClick={completeSetup}
           >
             Complete Setup
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
