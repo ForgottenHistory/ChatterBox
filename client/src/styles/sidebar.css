@@ -1,0 +1,236 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-darker);
+}
+
+.sidebar-section {
+  padding: 1rem 0.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.bot-count {
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 0.1rem 0.4rem;
+  border-radius: 8px;
+  font-size: 0.7rem;
+}
+
+.channels-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.channel-item {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.channel-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.channel-item.active {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.channel-hash {
+  margin-right: 0.5rem;
+  font-weight: 500;
+}
+
+.channel-name {
+  font-size: 0.9rem;
+}
+
+.bots-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.bot-item {
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.bot-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.bot-avatar {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  background-color: var(--bot-badge);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  margin-right: 0.7rem;
+}
+
+.status-indicator {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 3px solid var(--bg-darker);
+}
+
+.bot-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bot-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.1rem;
+}
+
+.bot-badge {
+  background-color: var(--bot-badge);
+  color: var(--text-primary);
+  font-size: 0.6rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.bot-personality {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid var(--bg-hover);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  background-color: var(--brand-blue);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-details {
+  flex: 1;
+}
+
+.username {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.username-edit {
+  margin-bottom: 0.2rem;
+}
+
+.username-edit-input {
+  background-color: var(--bg-dark);
+  border: 1px solid var(--brand-blue);
+  border-radius: 3px;
+  padding: 0.2rem 0.4rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.username-edit-input:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+}
+
+.username {
+  cursor: pointer;
+  padding: 0.1rem 0;
+  border-radius: 3px;
+  transition: background-color 0.15s;
+}
+
+.username:hover {
+  background-color: var(--bg-hover);
+}
+
+.user-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-select {
+  background-color: var(--bg-dark);
+  border: 1px solid var(--bg-hover);
+  border-radius: 3px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 0.1rem 0.3rem;
+  cursor: pointer;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+}
+
+.user-avatar {
+  position: relative;
+}
