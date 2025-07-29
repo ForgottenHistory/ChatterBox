@@ -13,11 +13,13 @@ export interface User {
 interface UserContextType {
   user: User | null;
   isLoading: boolean;
-  setUsername: (username: string) => void;
+  hasUser: boolean;
+  isSetupComplete: boolean;
+  createUser: (username: string) => void;
+  completeSetup: () => void;
   setUserAvatar: (avatar: string, type: User['avatarType']) => void;
   setUserStatus: (status: User['status']) => void;
   updateLastActive: () => void;
-  isUsernameSet: boolean;
   clearUser: () => void;
 }
 
@@ -26,6 +28,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSetupComplete, setIsSetupComplete] = useState(false);
 
   // Generate a random color for initials avatar
   const generateAvatarColor = (): string => {
@@ -37,34 +40,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  // Initialize user data on app start
+  // Initialize - check if user exists in localStorage
   useEffect(() => {
     const initializeUser = async () => {
+      // Simulate loading time
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       try {
-        // Simulate minimum loading time for smooth UX
-        const minLoadingTime = new Promise(resolve => setTimeout(resolve, 1000));
-        
         const savedUser = localStorage.getItem('chatterbox-user');
+        const savedSetupComplete = localStorage.getItem('chatterbox-setup-complete');
         
         if (savedUser) {
           const userData = JSON.parse(savedUser);
-          
-          // Migrate old user data if needed
-          if (!userData.avatarType) {
-            userData.avatarType = 'initials';
-            userData.avatar = userData.avatar || generateAvatarColor();
-            userData.joinedAt = userData.joinedAt || new Date().toISOString();
-            userData.lastActive = new Date().toISOString();
-          }
-          
-          await minLoadingTime;
           setUser(userData);
-        } else {
-          await minLoadingTime;
+          setIsSetupComplete(savedSetupComplete === 'true');
         }
       } catch (error) {
         console.error('Error loading user data:', error);
         localStorage.removeItem('chatterbox-user');
+        localStorage.removeItem('chatterbox-setup-complete');
       } finally {
         setIsLoading(false);
       }
@@ -80,30 +74,25 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user, isLoading]);
 
-  const setUsername = (username: string) => {
-    const trimmedUsername = username.trim();
-    const now = new Date().toISOString();
-    
-    if (user) {
-      // Update existing user
-      setUser(prev => prev ? {
-        ...prev,
-        username: trimmedUsername,
-        lastActive: now
-      } : null);
-    } else {
-      // Create new user
-      const userData: User = {
-        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        username: trimmedUsername,
-        avatar: generateAvatarColor(),
-        avatarType: 'initials',
-        status: 'online',
-        joinedAt: now,
-        lastActive: now
-      };
-      setUser(userData);
+  // Save setup completion state
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('chatterbox-setup-complete', isSetupComplete.toString());
     }
+  }, [isSetupComplete, isLoading]);
+
+  const createUser = (username: string) => {
+    const now = new Date().toISOString();
+    const newUser: User = {
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      username: username.trim(),
+      avatar: generateAvatarColor(),
+      avatarType: 'initials',
+      status: 'online',
+      joinedAt: now,
+      lastActive: now
+    };
+    setUser(newUser);
   };
 
   const setUserAvatar = (avatar: string, type: User['avatarType']) => {
@@ -136,22 +125,30 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const clearUser = () => {
-    setUser(null);
-    localStorage.removeItem('chatterbox-user');
+  const completeSetup = () => {
+    setIsSetupComplete(true);
   };
 
-  const isUsernameSet = user !== null && user.username.length > 0;
+  const clearUser = () => {
+    setUser(null);
+    setIsSetupComplete(false);
+    localStorage.removeItem('chatterbox-user');
+    localStorage.removeItem('chatterbox-setup-complete');
+  };
+
+  const hasUser = user !== null && isSetupComplete;
 
   return (
     <UserContext.Provider value={{
       user,
       isLoading,
-      setUsername,
+      hasUser,
+      isSetupComplete,
+      createUser,
+      completeSetup,
       setUserAvatar,
       setUserStatus,
       updateLastActive,
-      isUsernameSet,
       clearUser
     }}>
       {children}

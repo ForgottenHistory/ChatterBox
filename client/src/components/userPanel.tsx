@@ -3,38 +3,11 @@ import { useUser } from '../contexts/userContext';
 import UserAvatar from './UserAvatar';
 
 const UserPanel: React.FC = () => {
-  const { user, setUsername, setUserStatus } = useUser();
+  const { user, setUserStatus } = useUser();
   const [isEditing, setIsEditing] = useState(false);
-  const [editUsername, setEditUsername] = useState('');
-
-  const handleEditClick = () => {
-    setEditUsername(user?.username || '');
-    setIsEditing(true);
-  };
-
-  const handleSaveUsername = () => {
-    if (editUsername.trim().length >= 2) {
-      setUsername(editUsername.trim());
-      setIsEditing(false);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditUsername('');
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSaveUsername();
-    } else if (e.key === 'Escape') {
-      handleCancelEdit();
-    }
-  };
 
   const handleAvatarClick = () => {
-    // TODO: Open avatar settings modal
-    console.log('Avatar clicked - will open settings modal');
+    console.log('Avatar clicked - settings coming soon');
   };
 
   if (!user) return null;
@@ -50,24 +23,9 @@ const UserPanel: React.FC = () => {
         />
         
         <div className="user-details">
-          {isEditing ? (
-            <div className="username-edit">
-              <input
-                type="text"
-                value={editUsername}
-                onChange={(e) => setEditUsername(e.target.value)}
-                onKeyPress={handleKeyPress}
-                onBlur={handleSaveUsername}
-                className="username-edit-input"
-                maxLength={20}
-                autoFocus
-              />
-            </div>
-          ) : (
-            <div className="username" onClick={handleEditClick} title="Click to edit username">
-              {user.username}
-            </div>
-          )}
+          <div className="username">
+            {user.username}
+          </div>
           
           <div className="user-controls">
             <select 

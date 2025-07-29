@@ -43,6 +43,24 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     }
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.target as HTMLImageElement;
+    const parent = target.parentElement;
+    
+    if (parent) {
+      // Hide the failed image
+      target.style.display = 'none';
+      
+      // Show initials as fallback
+      parent.style.backgroundColor = user.avatar.startsWith('#') ? user.avatar : 'var(--brand-blue)';
+      parent.style.color = 'var(--text-primary)';
+      parent.style.fontSize = parent.classList.contains('avatar-extra-large') ? '3rem' : 
+                               parent.classList.contains('avatar-large') ? '1.2rem' : 
+                               parent.classList.contains('avatar-small') ? '0.7rem' : '0.8rem';
+      parent.textContent = getUserInitials(user.username);
+    }
+  };
+
   const renderAvatarContent = () => {
     switch (user.avatarType) {
       case 'uploaded':
@@ -51,15 +69,12 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
             src={user.avatar} 
             alt={`${user.username}'s avatar`}
             className="avatar-image"
-            onError={(e) => {
-              // Fallback to initials if image fails to load
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              const parent = target.parentElement;
-              if (parent) {
-                parent.style.backgroundColor = user.avatar || 'var(--brand-blue)';
-                parent.textContent = getUserInitials(user.username);
-              }
+            onError={handleImageError}
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover',
+              display: 'block'
             }}
           />
         );
@@ -76,12 +91,25 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     }
   };
 
+  // For uploaded avatars, don't set background color
+  const getBackgroundColor = () => {
+    if (user.avatarType === 'uploaded') {
+      return 'transparent';
+    }
+    if (user.avatarType === 'initials') {
+      return user.avatar.startsWith('#') ? user.avatar : 'var(--brand-blue)';
+    }
+    return 'transparent';
+  };
+
   return (
     <div 
       className={`user-avatar ${getSizeClass(size)} ${onClick ? 'clickable' : ''} ${className}`}
       style={{ 
-        backgroundColor: user.avatarType === 'initials' ? user.avatar : 'transparent'
+        backgroundColor: getBackgroundColor(),
+        color: user.avatarType === 'initials' ? 'var(--text-primary)' : 'transparent'
       }}
+      data-type={user.avatarType}
       onClick={onClick}
       title={`${user.username} (${user.status})`}
     >

@@ -1,5 +1,5 @@
 import React from 'react';
-import UserPanel from './userPanel';
+import UserPanel from './UserPanel';
 
 interface Channel {
   id: string;

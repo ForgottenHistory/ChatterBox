@@ -1,0 +1,209 @@
+/* Button Component Styles */
+.btn {
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Button Variants */
+.btn-primary {
+  background-color: var(--brand-blue);
+  color: var(--text-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #4752C4;
+}
+
+.btn-primary:disabled {
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.btn-secondary {
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--bg-hover);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  border-color: var(--brand-blue);
+}
+
+.btn-danger {
+  background-color: transparent;
+  color: var(--error-red);
+  border: 1px solid var(--error-red);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: var(--error-red);
+  color: var(--text-primary);
+}
+
+/* Button Sizes */
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.btn-medium {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+}
+
+.btn-large {
+  padding: 0.875rem 2rem;
+  font-size: 1rem;
+}
+
+/* Input Component Styles */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.input-label {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.input {
+  background-color: var(--bg-dark);
+  border: 2px solid var(--bg-hover);
+  border-radius: 8px;
+  padding: 0.875rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+}
+
+.input.input-error {
+  border-color: var(--error-red);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:disabled {
+  background-color: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.input-error-message {
+  color: var(--error-red);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+/* Modal Component Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--bg-darker);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--bg-hover);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-small {
+  width: 90%;
+  max-width: 400px;
+  padding: 2rem;
+}
+
+.modal-medium {
+  width: 90%;
+  max-width: 500px;
+  padding: 2.5rem;
+}
+
+.modal-large {
+  width: 90%;
+  max-width: 700px;
+  padding: 3rem;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.modal-title-section {
+  flex: 1;
+}
+
+.modal-title {
+  color: var(--brand-blue);
+  font-size: 1.8rem;
+  margin: 0 0 0.5rem 0;
+  font-weight: 700;
+}
+
+.modal-subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close-button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  /* Content styling handled by children */
+}
