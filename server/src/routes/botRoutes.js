@@ -18,11 +18,11 @@ router.get('/:botId', (req, res) => {
   try {
     const { botId } = req.params;
     const bot = botService.getBotById(botId);
-    
+
     if (!bot) {
       return res.status(404).json({ error: 'Bot not found' });
     }
-    
+
     // Don't expose triggers and responses for security
     const publicBot = {
       id: bot.id,
@@ -34,7 +34,7 @@ router.get('/:botId', (req, res) => {
       joinedAt: bot.joinedAt,
       lastActive: bot.lastActive
     };
-    
+
     res.json(publicBot);
   } catch (error) {
     console.error('Error fetching bot:', error);
@@ -43,10 +43,26 @@ router.get('/:botId', (req, res) => {
 });
 
 // Create new bot
+// Replace the existing POST route in botRoutes.js with this enhanced version
+
+// Create new bot
 router.post('/', (req, res) => {
   try {
-    const { name, personality, triggers, responses, avatar, responseChance } = req.body;
-    
+    const {
+      name,
+      personality,
+      description,
+      scenario,
+      firstMessage,
+      exampleMessages,
+      systemPrompt,
+      triggers,
+      responses,
+      avatar,
+      avatarType,
+      responseChance
+    } = req.body;
+
     // Validate required fields
     if (!name || !personality || !triggers || !responses) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -70,13 +86,19 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Bot name is already taken' });
     }
 
-    // Create bot through service
+    // Create bot through service with enhanced data
     const newBot = botService.createBot({
       name: name.trim(),
       personality,
+      description: description || '',
+      scenario: scenario || '',
+      firstMessage: firstMessage || '',
+      exampleMessages: exampleMessages || '',
+      systemPrompt: systemPrompt || '',
       triggers,
       responses,
       avatar: avatar || '#7289DA',
+      avatarType: avatarType || 'initials',
       responseChance: responseChance || 0.7
     });
 
@@ -93,7 +115,9 @@ router.post('/', (req, res) => {
       avatar: newBot.avatar,
       avatarType: newBot.avatarType,
       joinedAt: newBot.joinedAt,
-      lastActive: newBot.lastActive
+      lastActive: newBot.lastActive,
+      description: newBot.description,
+      scenario: newBot.scenario
     });
   } catch (error) {
     console.error('Error creating bot:', error);
@@ -105,13 +129,13 @@ router.post('/', (req, res) => {
 router.delete('/:botId', (req, res) => {
   try {
     const { botId } = req.params;
-    
+
     const deleted = botService.deleteBot(botId);
-    
+
     if (!deleted) {
       return res.status(404).json({ error: 'Bot not found' });
     }
-    
+
     res.json({ success: true, message: 'Bot deleted successfully' });
   } catch (error) {
     console.error('Error deleting bot:', error);
@@ -124,17 +148,17 @@ router.patch('/:botId/status', (req, res) => {
   try {
     const { botId } = req.params;
     const { status } = req.body;
-    
+
     if (!['online', 'away', 'offline'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
-    
+
     const updated = botService.updateBotStatus(botId, status);
-    
+
     if (!updated) {
       return res.status(404).json({ error: 'Bot not found' });
     }
-    
+
     res.json({ success: true, message: 'Bot status updated' });
   } catch (error) {
     console.error('Error updating bot status:', error);

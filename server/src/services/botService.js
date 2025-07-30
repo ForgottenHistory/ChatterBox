@@ -21,17 +21,26 @@ class BotService {
 
       const now = new Date().toISOString();
       const botId = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const newBot = {
         type: 'bot',
         id: botId,
         username: config.name,
         avatar: config.avatar || '#7289DA',
-        avatarType: 'initials',
+        avatarType: config.avatarType || 'initials',
         status: 'online',
         joinedAt: now,
         lastActive: now,
         personality: config.personality,
+
+        // V2 Character Card fields
+        description: config.description || '',
+        scenario: config.scenario || '',
+        firstMessage: config.firstMessage || '',
+        exampleMessages: config.exampleMessages || '',
+        systemPrompt: config.systemPrompt || '',
+
+        // Bot behavior
         triggers: config.triggers,
         responses: config.responses,
         responseChance: config.responseChance || 0.7
@@ -39,8 +48,12 @@ class BotService {
 
       // Add to bots array
       this.bots.push(newBot);
-      
+
       console.log(`Created new bot: ${newBot.username} (${newBot.id})`);
+      console.log(`  - Description: ${newBot.description.substring(0, 50)}...`);
+      console.log(`  - Triggers: ${newBot.triggers.join(', ')}`);
+      console.log(`  - Responses: ${newBot.responses.length} responses`);
+
       return newBot;
     } catch (error) {
       console.error('Error creating bot:', error);
@@ -53,13 +66,13 @@ class BotService {
     try {
       const initialLength = this.bots.length;
       this.bots = this.bots.filter(bot => bot.id !== botId);
-      
+
       const wasDeleted = this.bots.length < initialLength;
-      
+
       if (wasDeleted) {
         console.log(`Deleted bot: ${botId}`);
       }
-      
+
       return wasDeleted;
     } catch (error) {
       console.error('Error deleting bot:', error);
@@ -69,7 +82,7 @@ class BotService {
 
   // Check if bot name already exists
   isBotNameTaken(name) {
-    return this.bots.some(bot => 
+    return this.bots.some(bot =>
       bot.username.toLowerCase() === name.toLowerCase()
     );
   }
@@ -82,7 +95,7 @@ class BotService {
 
     this.bots.forEach(bot => {
       console.log(`Checking bot ${bot.username} with triggers:`, bot.triggers);
-      
+
       const shouldTrigger = bot.triggers.some(trigger => {
         const matches = messageText.includes(trigger.toLowerCase());
         console.log(`  Trigger "${trigger}" matches: ${matches}`);
@@ -93,7 +106,7 @@ class BotService {
         console.log(`Bot ${bot.username} should trigger. Rolling dice with chance ${bot.responseChance}`);
         const roll = Math.random();
         console.log(`  Rolled: ${roll}, needed: ${bot.responseChance}`);
-        
+
         if (roll < bot.responseChance) {
           console.log(`  Bot ${bot.username} will respond!`);
           respondingBots.push(bot);
@@ -128,7 +141,7 @@ class BotService {
   // Process a user message and return bot responses
   async processMessage(userMessage, room) {
     console.log('Processing message:', userMessage, 'in room:', room);
-    
+
     // Handle both legacy and new message formats
     const messageContent = userMessage.content || userMessage.message || userMessage;
     console.log('Message content extracted:', messageContent);
@@ -138,7 +151,7 @@ class BotService {
 
     for (const bot of respondingBots) {
       console.log(`Generating response for bot: ${bot.username}`);
-      
+
       // Add a small delay between bot responses
       await this.delay(this.responseDelay + Math.random() * 2000);
 

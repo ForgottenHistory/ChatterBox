@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bot, BotPersonality } from '../types';
+import { CharacterCardV2 } from '../types/character';
+import { characterImageParser } from '../utils/characterImageParser';
 import UserAvatar from './UserAvatar';
 import Button from './ui/Button';
 import Input from './ui/Input';
@@ -13,10 +15,16 @@ interface BotManagementModalProps {
 interface CreateBotForm {
   name: string;
   personality: BotPersonality;
+  description: string;
+  scenario: string;
+  firstMessage: string;
+  exampleMessages: string;
   triggers: string;
   responses: string;
   avatar: string;
+  avatarType: 'initials' | 'uploaded';
   responseChance: number;
+  systemPrompt: string;
 }
 
 const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose }) => {
@@ -26,14 +34,22 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<CreateBotForm>({
     name: '',
     personality: 'friendly',
+    description: '',
+    scenario: '',
+    firstMessage: '',
+    exampleMessages: '',
     triggers: '',
     responses: '',
     avatar: '#7289DA',
-    responseChance: 0.7
+    avatarType: 'initials',
+    responseChance: 0.7,
+    systemPrompt: ''
   });
 
   const personalityOptions: { value: BotPersonality; label: string; description: string }[] = [
@@ -85,6 +101,109 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
     }
   };
 
+  const resetForm = () => {
+    setForm({
+      name: '',
+      personality: 'friendly',
+      description: '',
+      scenario: '',
+      firstMessage: '',
+      exampleMessages: '',
+      triggers: '',
+      responses: '',
+      avatar: '#7289DA',
+      avatarType: 'initials',
+      responseChance: 0.7,
+      systemPrompt: ''
+    });
+  };
+
+  const handleImportCharacter = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImporting(true);
+    setError(null);
+
+    try {
+      console.log('Importing character from file:', file.name);
+      
+      // Try to extract character data
+      let characterData: CharacterCardV2 | null = null;
+      
+      if (file.type === 'image/png' || file.name.toLowerCase().endsWith('.png')) {
+        characterData = await characterImageParser.extractFromPNG(file);
+        
+        // Try alternative method if first one fails
+        if (!characterData) {
+          characterData = await characterImageParser.extractFromPNGAlternative(file);
+        }
+      } else if (file.type === 'application/json' || file.name.toLowerCase().endsWith('.json')) {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (parsed.spec === 'chara_card_v2') {
+          characterData = parsed;
+        }
+      }
+
+      if (characterData) {
+        console.log('Character data imported:', characterData.data.name);
+        
+        // Map character data to bot form
+        const data = characterData.data;
+        
+        // Generate responses from first message and example messages
+        const responses = [];
+        if (data.first_mes) responses.push(data.first_mes);
+        if (data.mes_example) {
+          // Split example messages and extract bot responses
+          const examples = data.mes_example.split('\n').filter(line => line.trim());
+          examples.forEach(example => {
+            if (example.includes(':') && !example.toLowerCase().includes('{{user}}')) {
+              const message = example.split(':', 2)[1]?.trim();
+              if (message) responses.push(message);
+            }
+          });
+        }
+        
+        // Generate triggers from name and personality
+        const triggers = [
+          data.name.toLowerCase(),
+          'hello', 'hi', 'hey'
+        ];
+
+        setForm({
+          name: data.name,
+          personality: 'friendly', // Default, user can change
+          description: data.description || '',
+          scenario: data.scenario || '',
+          firstMessage: data.first_mes || '',
+          exampleMessages: data.mes_example || '',
+          triggers: triggers.join(', '),
+          responses: responses.join('\n'),
+          avatar: data.avatar || avatarColors[Math.floor(Math.random() * avatarColors.length)],
+          avatarType: data.avatar ? 'uploaded' : 'initials',
+          responseChance: 0.7,
+          systemPrompt: data.system_prompt || ''
+        });
+
+        setActiveTab('create');
+        setError(null);
+      } else {
+        setError('No character data found in file. Make sure it\'s a valid V2 character card.');
+      }
+    } catch (error) {
+      console.error('Error importing character:', error);
+      setError(`Failed to import character: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setImporting(false);
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleCreateBot = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -107,9 +226,15 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
       const botData = {
         name: form.name.trim(),
         personality: form.personality,
+        description: form.description,
+        scenario: form.scenario,
+        firstMessage: form.firstMessage,
+        exampleMessages: form.exampleMessages,
+        systemPrompt: form.systemPrompt,
         triggers,
         responses,
         avatar: form.avatar,
+        avatarType: form.avatarType,
         responseChance: form.responseChance
       };
 
@@ -120,15 +245,7 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
       });
 
       if (response.ok) {
-        // Reset form
-        setForm({
-          name: '',
-          personality: 'friendly',
-          triggers: '',
-          responses: '',
-          avatar: '#7289DA',
-          responseChance: 0.7
-        });
+        resetForm();
         setActiveTab('list');
         await fetchBots();
       } else {
@@ -163,6 +280,25 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
 
   const renderBotList = () => (
     <div className="bot-list-content">
+      <div className="import-section">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".png,.json,image/png,application/json"
+          onChange={handleImportCharacter}
+          style={{ display: 'none' }}
+          disabled={importing}
+        />
+        <Button
+          variant="secondary"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+        >
+          {importing ? 'Importing...' : 'Import V2 Character Card'}
+        </Button>
+        <p className="import-info">Import from .png or .json character card files</p>
+      </div>
+
       {loading ? (
         <div className="loading-state">Loading bots...</div>
       ) : bots.length === 0 ? (
@@ -206,7 +342,7 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           placeholder="Enter bot name..."
-          maxLength={20}
+          maxLength={50}
           disabled={creating}
         />
       </div>
@@ -228,19 +364,57 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
       </div>
 
       <div className="form-row">
-        <label className="form-label">Avatar Color</label>
-        <div className="color-picker">
-          {avatarColors.map(color => (
-            <button
-              key={color}
+        <label className="form-label">Description</label>
+        <textarea
+          value={form.description}
+          onChange={(e) => setForm({ ...form, description: e.target.value })}
+          placeholder="Describe the character's appearance, background, and traits..."
+          className="form-textarea"
+          rows={3}
+          disabled={creating}
+        />
+      </div>
+
+      <div className="form-row">
+        <label className="form-label">Scenario</label>
+        <textarea
+          value={form.scenario}
+          onChange={(e) => setForm({ ...form, scenario: e.target.value })}
+          placeholder="Describe the setting or situation where conversations take place..."
+          className="form-textarea"
+          rows={2}
+          disabled={creating}
+        />
+      </div>
+
+      <div className="form-row">
+        <label className="form-label">Avatar</label>
+        {form.avatarType === 'initials' ? (
+          <div className="color-picker">
+            {avatarColors.map(color => (
+              <button
+                key={color}
+                type="button"
+                className={`color-option ${form.avatar === color ? 'selected' : ''}`}
+                style={{ backgroundColor: color }}
+                onClick={() => setForm({ ...form, avatar: color })}
+                disabled={creating}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="uploaded-avatar-preview">
+            <img src={form.avatar} alt="Bot avatar" className="avatar-preview-img" />
+            <Button
               type="button"
-              className={`color-option ${form.avatar === color ? 'selected' : ''}`}
-              style={{ backgroundColor: color }}
-              onClick={() => setForm({ ...form, avatar: color })}
-              disabled={creating}
-            />
-          ))}
-        </div>
+              variant="secondary"
+              size="small"
+              onClick={() => setForm({ ...form, avatarType: 'initials', avatar: '#7289DA' })}
+            >
+              Use Initials Instead
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="form-row">
@@ -264,6 +438,22 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
           disabled={creating}
         />
       </div>
+
+      {form.systemPrompt && (
+        <div className="form-row">
+          <label className="form-label">System Prompt</label>
+          <textarea
+            value={form.systemPrompt}
+            onChange={(e) => setForm({ ...form, systemPrompt: e.target.value })}
+            placeholder="System instructions for the bot..."
+            className="form-textarea"
+            rows={2}
+            disabled={creating}
+            readOnly
+          />
+          <small className="form-help">Imported from character card (read-only)</small>
+        </div>
+      )}
 
       <div className="form-row">
         <label className="form-label">Response Chance ({Math.round(form.responseChance * 100)}%)</label>

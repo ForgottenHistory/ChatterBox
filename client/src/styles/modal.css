@@ -683,3 +683,102 @@
   padding-top: 1rem;
   border-top: 1px solid var(--bg-hover);
 }
+
+/* V2 Character Card Import Styles */
+.import-section {
+  padding: 1rem;
+  background-color: var(--bg-dark);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.import-info {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0.5rem 0 0 0;
+}
+
+/* Enhanced Form Styles */
+.form-textarea {
+  background-color: var(--bg-dark);
+  border: 2px solid var(--bg-hover);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  width: 100%;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+}
+
+.form-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.form-help {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* Uploaded Avatar Preview */
+.uploaded-avatar-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  background-color: var(--bg-dark);
+  border-radius: 8px;
+  border: 1px solid var(--bg-hover);
+}
+
+.avatar-preview-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--bg-hover);
+}
+
+/* Expanded Form Layout */
+.create-bot-form {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.create-bot-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.create-bot-form::-webkit-scrollbar-track {
+  background: var(--bg-hover);
+  border-radius: 3px;
+}
+
+.create-bot-form::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+.create-bot-form::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Form Row Spacing */
+.form-row {
+  margin-bottom: 1.25rem;
+}
+
+.form-row:last-of-type:not(.form-actions) {
+  margin-bottom: 1.5rem;
+}
