@@ -93,7 +93,6 @@ class ChatHandler {
       room: response.room
     };
 
-    console.log('Legacy response object:', legacyResponse);
     this.io.to(room).emit('receive_message', legacyResponse);
   }
 }
