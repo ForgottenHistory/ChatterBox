@@ -17,9 +17,20 @@ interface LegacyMessage {
   content?: string;
 }
 
+interface TypingIndicator {
+  userId: string;
+  username: string;
+  isTyping: boolean;
+  room: string;
+  isBot?: boolean;
+  userAvatar?: string;
+  userAvatarType?: 'initials' | 'uploaded' | 'generated';
+}
+
 interface UseSocketReturn {
   socket: Socket | null;
   connected: boolean;
+  typingUsers: Participant[];
   sendMessage: (message: string, user: User) => void;
 }
 
@@ -28,6 +39,7 @@ export const useSocket = (
 ): UseSocketReturn => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Participant[]>([]);
 
   // Convert legacy message format to new Message format
   const convertLegacyMessage = (legacyMsg: LegacyMessage): Message => {
@@ -72,6 +84,34 @@ export const useSocket = (
     };
   };
 
+  const convertTypingIndicator = (typingData: TypingIndicator): Participant => {
+    return typingData.isBot
+      ? {
+          type: 'bot',
+          id: typingData.userId,
+          username: typingData.username,
+          avatar: typingData.userAvatar || '#7289DA',
+          avatarType: typingData.userAvatarType || 'initials',
+          status: 'online',
+          joinedAt: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+          personality: 'friendly',
+          triggers: [],
+          responses: [],
+          responseChance: 0.7
+        }
+      : {
+          type: 'user',
+          id: typingData.userId,
+          username: typingData.username,
+          avatar: typingData.userAvatar || '#5865F2',
+          avatarType: typingData.userAvatarType || 'initials',
+          status: 'online',
+          joinedAt: new Date().toISOString(),
+          lastActive: new Date().toISOString()
+        };
+  };
+
   const sendMessage = (message: string, user: User) => {
     if (socket && message.trim()) {
       // Create legacy format for socket communication
@@ -105,9 +145,25 @@ export const useSocket = (
       onMessageReceived(message);
     });
 
+    newSocket.on('typing_indicator', (data: TypingIndicator) => {
+      const participant = convertTypingIndicator(data);
+      
+      setTypingUsers(prev => {
+        if (data.isTyping) {
+          // Add user to typing list if not already there
+          const exists = prev.find(u => u.id === participant.id);
+          return exists ? prev : [...prev, participant];
+        } else {
+          // Remove user from typing list
+          return prev.filter(u => u.id !== participant.id);
+        }
+      });
+    });
+
     newSocket.on('disconnect', () => {
       console.log('Disconnected from server');
       setConnected(false);
+      setTypingUsers([]);
     });
 
     return () => {
@@ -118,6 +174,7 @@ export const useSocket = (
   return {
     socket,
     connected,
+    typingUsers,
     sendMessage
   };
 };

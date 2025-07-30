@@ -184,3 +184,62 @@
   background-color: var(--bg-hover);
   color: var(--brand-blue);
 }
+
+/* Typing Indicator Styles */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  background-color: var(--bg-dark);
+  border-top: 1px solid var(--bg-hover);
+  min-height: 50px;
+}
+
+.typing-users {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.typing-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.typing-dots {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.typing-dots .dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  animation: typing-pulse 1.4s infinite;
+}
+
+.typing-dots .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-pulse {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}

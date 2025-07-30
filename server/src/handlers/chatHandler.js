@@ -50,11 +50,11 @@ class ChatHandler {
 
       // Create a message object that the bot service expects
       const messageForBots = {
-        content: data.message, // Use 'message' field from the legacy format
+        content: data.message,
         author: {
           id: data.userId,
           username: data.username,
-          type: 'user' // Specify this is a user message
+          type: 'user'
         },
         timestamp: new Date().toISOString(),
         room: data.room
@@ -62,19 +62,59 @@ class ChatHandler {
 
       console.log('Message for bots:', messageForBots);
 
+      // Get list of bots that will respond
+      const respondingBots = botService.shouldRespond(messageForBots);
+      
+      if (respondingBots.length === 0) {
+        console.log('No bots will respond');
+        return;
+      }
+
+      // Send typing indicators for responding bots
+      respondingBots.forEach((bot, index) => {
+        setTimeout(() => {
+          this.sendTypingIndicator(bot, data.room, true);
+        }, index * 200); // Stagger the typing indicators slightly
+      });
+
+      // Generate bot responses
       const botResponses = await botService.processMessage(messageForBots, data.room);
       console.log('Bot responses received:', botResponses.length);
 
-      // Send each bot response with a delay to simulate typing
+      // Send each bot response with proper timing
       botResponses.forEach((response, index) => {
         console.log(`Scheduling bot response ${index + 1}:`, response.author.username);
+        
         setTimeout(() => {
-          this.sendBotResponse(response, data.room);
-        }, (index + 1) * 1500); // 1.5 second delay between bot responses
+          // Stop typing indicator
+          this.sendTypingIndicator(response.author, data.room, false);
+          
+          // Send the actual response after a brief pause
+          setTimeout(() => {
+            this.sendBotResponse(response, data.room);
+          }, 300);
+        }, (index + 1) * 1500);
       });
+
     } catch (error) {
       console.error('Error processing bot responses:', error);
     }
+  }
+
+  sendTypingIndicator(bot, room, isTyping) {
+    console.log(`${isTyping ? 'Starting' : 'Stopping'} typing indicator for ${bot.username}`);
+    
+    const typingData = {
+      userId: bot.id,
+      username: bot.username,
+      isTyping: isTyping,
+      room: room,
+      isBot: true,
+      userAvatar: bot.avatar,
+      userAvatarType: bot.avatarType
+    };
+
+    this.io.to(room).emit('typing_indicator', typingData);
   }
 
   sendBotResponse(response, room) {

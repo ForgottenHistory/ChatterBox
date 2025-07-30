@@ -8,6 +8,7 @@ import { useMessages } from '../hooks/useMessages';
 import ChatHeader from './chat/ChatHeader';
 import MessageList from './chat/MessageList';
 import MessageInput from './chat/MessageInput';
+import TypingIndicator from './TypingIndicator';
 import UserProfileModal from './UserProfileModal';
 import PromptInspectorModal from './PromptInspectorModal';
 
@@ -16,7 +17,7 @@ const Chat: React.FC = () => {
   const [showPromptInspector, setShowPromptInspector] = useState(false);
   const { isOpen, selectedUser, showProfile, hideProfile } = useProfileModal();
   const { messages, addMessage } = useMessages();
-  const { connected, sendMessage } = useSocket(addMessage);
+  const { connected, typingUsers, sendMessage } = useSocket(addMessage);
 
   const handleSendMessage = (message: string) => {
     if (user) {
@@ -46,6 +47,8 @@ const Chat: React.FC = () => {
           messages={messages}
           onUserClick={handleUserClick}
         />
+
+        <TypingIndicator typingUsers={typingUsers} />
 
         <MessageInput
           onSendMessage={handleSendMessage}
