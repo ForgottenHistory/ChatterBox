@@ -77,3 +77,37 @@ export interface MessageData {
   room: string;
   authorId: string;
 }
+
+// LLM Settings interface
+export interface LLMSettings {
+  systemPrompt: string;
+  temperature: number;
+  topP: number;
+  topK: number;
+  frequencyPenalty: number;
+  presencePenalty: number;
+  repetitionPenalty: number;
+  minP: number;
+}
+
+// Default LLM settings
+export const DEFAULT_LLM_SETTINGS: LLMSettings = {
+  systemPrompt: '',
+  temperature: 0.6,
+  topP: 1.0,
+  topK: -1,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
+  repetitionPenalty: 1.0,
+  minP: 0
+};
+
+// Update BotConfig to include LLM settings
+export interface BotConfig {
+  name: string;
+  description?: string;
+  exampleMessages?: string;
+  avatar?: string;
+  avatarType?: AvatarType;
+  llmSettings?: LLMSettings;
+}
