@@ -26,8 +26,7 @@ const INITIAL_FORM: CreateBotForm = {
 
 export const useBotForm = () => {
     const { state: form, updateField, updateFields, reset: resetForm } = useFormState(INITIAL_FORM);
-    const [llmSettings, setLlmSettings] = useState<LLMSettings>(() => ({ ...DEFAULT_LLM_SETTINGS }));
-    const [originalLlmSettings, setOriginalLlmSettings] = useState<LLMSettings>(() => ({ ...DEFAULT_LLM_SETTINGS }));
+    const [botLlmSettings, setBotLlmSettings] = useState<LLMSettings>(() => ({ ...DEFAULT_LLM_SETTINGS }));
 
     const updateForm = (updates: Partial<CreateBotForm>) => updateFields(updates);
 
@@ -42,34 +41,31 @@ export const useBotForm = () => {
             avatarType: avatar ? 'uploaded' : 'initials'
         });
 
-        // Update LLM settings with system prompt
+        // Update bot-specific LLM settings with system prompt
         const newLlmSettings = {
             ...DEFAULT_LLM_SETTINGS,
             systemPrompt: system_prompt || description
         };
-        setLlmSettings(newLlmSettings);
+        setBotLlmSettings(newLlmSettings);
     };
 
     const resetAllForms = () => {
         resetForm();
-        setLlmSettings({ ...DEFAULT_LLM_SETTINGS });
+        setBotLlmSettings({ ...DEFAULT_LLM_SETTINGS });
     };
 
     const getCreateBotData = () => ({
         ...form,
-        llmSettings
+        llmSettings: botLlmSettings
     });
 
-    const hasUnsavedLlmChanges = () => {
-        return JSON.stringify(llmSettings) !== JSON.stringify(originalLlmSettings);
+    // For bot creation, we manage bot-specific LLM settings
+    const updateBotLlmSettings = (settings: LLMSettings) => {
+        setBotLlmSettings(settings);
     };
 
-    const saveLlmSettings = () => {
-        setOriginalLlmSettings({ ...llmSettings });
-    };
-
-    const cancelLlmChanges = () => {
-        setLlmSettings({ ...originalLlmSettings });
+    const resetBotLlmSettings = () => {
+        setBotLlmSettings({ ...DEFAULT_LLM_SETTINGS });
     };
 
     return {
@@ -79,12 +75,10 @@ export const useBotForm = () => {
         updateForm,
         resetForm: resetAllForms,
 
-        // LLM settings
-        llmSettings,
-        setLlmSettings,
-        hasUnsavedLlmChanges: hasUnsavedLlmChanges(),
-        saveLlmSettings,
-        cancelLlmChanges,
+        // Bot-specific LLM settings (for creation)
+        botLlmSettings,
+        updateBotLlmSettings,
+        resetBotLlmSettings,
 
         // Utils
         importCharacterData,

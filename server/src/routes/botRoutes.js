@@ -23,7 +23,7 @@ router.get('/:botId', (req, res) => {
       return res.status(404).json({ error: 'Bot not found' });
     }
 
-    // Don't expose triggers and responses for security
+    // Don't expose internal settings for security
     const publicBot = {
       id: bot.id,
       username: bot.username,
@@ -32,7 +32,8 @@ router.get('/:botId', (req, res) => {
       avatar: bot.avatar,
       avatarType: bot.avatarType,
       joinedAt: bot.joinedAt,
-      lastActive: bot.lastActive
+      lastActive: bot.lastActive,
+      description: bot.description
     };
 
     res.json(publicBot);
@@ -42,7 +43,7 @@ router.get('/:botId', (req, res) => {
   }
 });
 
-// Create new bot
+// Create new bot with LLM settings
 router.post('/', (req, res) => {
   try {
     const {
@@ -52,7 +53,8 @@ router.post('/', (req, res) => {
       systemPrompt,
       firstMessage,
       avatar,
-      avatarType
+      avatarType,
+      llmSettings
     } = req.body;
 
     // Validate required fields
@@ -65,18 +67,31 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Bot name is already taken' });
     }
 
-    // Create bot through service with minimal data
-    const newBot = botService.createBot({
+    // Prepare bot configuration
+    const botConfig = {
       name: name.trim(),
       description: description || '',
       exampleMessages: exampleMessages || '',
+      systemPrompt: systemPrompt || '',
+      firstMessage: firstMessage || '',
       avatar: avatar || '#7289DA',
-      avatarType: avatarType || 'initials'
-    });
+      avatarType: avatarType || 'initials',
+      llmSettings: llmSettings || null
+    };
+
+    // Create bot through service
+    const newBot = botService.createBot(botConfig);
 
     if (!newBot) {
       return res.status(400).json({ error: 'Failed to create bot' });
     }
+
+    console.log('Bot created successfully:', {
+      id: newBot.id,
+      name: newBot.username,
+      hasLlmSettings: !!newBot.llmSettings,
+      hasSystemPrompt: !!newBot.systemPrompt
+    });
 
     // Return public bot data
     res.status(201).json({

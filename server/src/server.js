@@ -9,6 +9,7 @@ require('dotenv').config();
 const healthRoutes = require('./routes/healthRoutes');
 const botRoutes = require('./routes/botRoutes');
 const avatarRoutes = require('./routes/avatarRoutes');
+const llmRoutes = require('./routes/llmRoutes');
 
 // Import socket handler
 const ChatHandler = require('./handlers/chatHandler');
@@ -36,6 +37,7 @@ app.use('/uploads/avatars', express.static(uploadsDir));
 app.use('/api/health', healthRoutes);
 app.use('/api/bots', botRoutes);
 app.use('/api', avatarRoutes);
+app.use('/api/llm', llmRoutes);
 
 // Socket.io handling
 const chatHandler = new ChatHandler(io);

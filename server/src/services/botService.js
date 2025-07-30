@@ -1,7 +1,8 @@
-const BotManager = require('./bot/botManager');
+const BotManager = require('../managers/botManager');
 const ConversationHistory = require('./bot/conversationHistory');
 const ResponseGenerator = require('./bot/responseGenerator');
 const ResponseLogic = require('./bot/responseLogic');
+const LLMSettingsManager = require('../managers/llmSettingsManager');
 
 class BotService {
   constructor() {
@@ -9,6 +10,7 @@ class BotService {
     this.conversationHistory = new ConversationHistory();
     this.responseGenerator = new ResponseGenerator();
     this.responseLogic = new ResponseLogic();
+    this.llmSettingsManager = new LLMSettingsManager();
 
     console.log('BotService initialized with modular components');
   }
@@ -46,6 +48,15 @@ class BotService {
     return this.botManager.isBotNameTaken(name);
   }
 
+  // LLM Settings methods (delegate to LLMSettingsManager)
+  getLLMSettings() {
+    return this.llmSettingsManager.getSettings();
+  }
+
+  updateLLMSettings(settings) {
+    return this.llmSettingsManager.updateSettings(settings);
+  }
+
   // Conversation methods (delegate to ConversationHistory)
   addToHistory(message) {
     this.conversationHistory.addMessage(message);
@@ -64,7 +75,8 @@ class BotService {
   // Response generation methods (delegate to ResponseGenerator)
   async generateMessage(bot, message, room) {
     const conversationHistory = this.conversationHistory.getRecentHistory();
-    return this.responseGenerator.generateMessage(bot, message, room, conversationHistory);
+    const llmSettings = this.llmSettingsManager.getSettings();
+    return this.responseGenerator.generateMessage(bot, message, room, conversationHistory, llmSettings);
   }
 
   // Main message processing method
@@ -82,11 +94,13 @@ class BotService {
     }
 
     // Generate responses from selected bots (using current history without the new message)
+    const llmSettings = this.llmSettingsManager.getSettings();
     const responses = await this.responseGenerator.generateMultipleResponses(
       respondingBots,
       userMessage,
       room,
-      this.conversationHistory.getRecentHistory()
+      this.conversationHistory.getRecentHistory(),
+      llmSettings
     );
 
     // Now add user message and bot responses to history

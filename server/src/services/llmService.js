@@ -8,31 +8,31 @@ class LLMService {
       baseURL: 'https://api.featherless.ai/v1',
       apiKey: process.env.FEATHERLESS_API_KEY,
     });
-    
+
     this.model = 'moonshotai/Kimi-K2-Instruct';
     this.maxTokens = 512; // Keep responses short for chat
     this.promptBuilder = new PromptBuilder();
-    
+
     console.log('LLM Service initialized with Featherless API');
   }
 
-  // Generate a response for a bot given the context
-  async generateResponse(botContext, userMessage, conversationHistory = [], options = {}) {
+  // Generate a response for a bot given the context and settings
+  async generateResponse(botContext, userMessage, conversationHistory = [], globalLlmSettings = {}, options = {}) {
     try {
       // Build the system prompt using PromptBuilder
       const systemPrompt = this.promptBuilder.buildSystemPrompt(
-        botContext, 
+        botContext,
         options.authorNote || null
       );
-      
+
       // Validate the prompt
       const validatedPrompt = this.promptBuilder.validatePrompt(systemPrompt);
-      
+
       // Build conversation messages in order
       const messages = [
         { role: 'system', content: validatedPrompt }
       ];
-      
+
       // Add conversation history (last 5 messages for context)
       const recentHistory = conversationHistory.slice(-5);
       recentHistory.forEach(msg => {
@@ -41,7 +41,7 @@ class LLMService {
           content: `${msg.username}: ${msg.content}`
         });
       });
-      
+
       // Add the current user message
       messages.push({
         role: 'user',
@@ -50,15 +50,20 @@ class LLMService {
 
       console.log('Messages sent to LLM:', messages.map(m => ({ role: m.role, content: m.content.substring(0, 100) + '...' })));
 
+      // Merge global settings with bot-specific overrides
+      const finalSettings = this.mergeSettings(globalLlmSettings, botContext.llmSettings);
+
+      console.log('Using LLM settings:', finalSettings);
+
       const completion = await this.client.chat.completions.create({
         model: this.model,
         max_tokens: this.maxTokens,
-        temperature: options.temperature || 0.8,
         messages: messages,
+        ...finalSettings
       });
 
       const response = completion.choices[0]?.message?.content;
-      
+
       if (!response) {
         throw new Error('No response generated from LLM');
       }
@@ -68,10 +73,77 @@ class LLMService {
 
     } catch (error) {
       console.error(`Error generating LLM response for ${botContext.name}:`, error);
-      
+
       // Return a fallback response
       return this.getFallbackResponse(botContext);
     }
+  }
+
+  // Merge global LLM settings with bot-specific overrides
+  mergeSettings(globalSettings, botSettings) {
+    const merged = {};
+
+    // Start with global settings
+    if (globalSettings.temperature !== undefined) {
+      merged.temperature = globalSettings.temperature;
+    }
+
+    if (globalSettings.topP !== undefined) {
+      merged.top_p = globalSettings.topP;
+    }
+
+    if (globalSettings.topK !== undefined && globalSettings.topK !== -1) {
+      merged.top_k = globalSettings.topK;
+    }
+
+    if (globalSettings.frequencyPenalty !== undefined && globalSettings.frequencyPenalty !== 0) {
+      merged.frequency_penalty = globalSettings.frequencyPenalty;
+    }
+
+    if (globalSettings.presencePenalty !== undefined && globalSettings.presencePenalty !== 0) {
+      merged.presence_penalty = globalSettings.presencePenalty;
+    }
+
+    if (globalSettings.repetitionPenalty !== undefined && globalSettings.repetitionPenalty !== 1.0) {
+      merged.repetition_penalty = globalSettings.repetitionPenalty;
+    }
+
+    if (globalSettings.minP !== undefined && globalSettings.minP !== 0) {
+      merged.min_p = globalSettings.minP;
+    }
+
+    // Override with bot-specific settings if they exist
+    if (botSettings) {
+      if (botSettings.temperature !== undefined) {
+        merged.temperature = botSettings.temperature;
+      }
+
+      if (botSettings.topP !== undefined) {
+        merged.top_p = botSettings.topP;
+      }
+
+      if (botSettings.topK !== undefined && botSettings.topK !== -1) {
+        merged.top_k = botSettings.topK;
+      }
+
+      if (botSettings.frequencyPenalty !== undefined && botSettings.frequencyPenalty !== 0) {
+        merged.frequency_penalty = botSettings.frequencyPenalty;
+      }
+
+      if (botSettings.presencePenalty !== undefined && botSettings.presencePenalty !== 0) {
+        merged.presence_penalty = botSettings.presencePenalty;
+      }
+
+      if (botSettings.repetitionPenalty !== undefined && botSettings.repetitionPenalty !== 1.0) {
+        merged.repetition_penalty = botSettings.repetitionPenalty;
+      }
+
+      if (botSettings.minP !== undefined && botSettings.minP !== 0) {
+        merged.min_p = botSettings.minP;
+      }
+    }
+
+    return merged;
   }
 
   // Fallback response when LLM fails
@@ -82,7 +154,7 @@ class LLMService {
       `Hey! What would you like to chat about?`,
       `Greetings! I'm here and ready to talk.`
     ];
-    
+
     return fallbacks[Math.floor(Math.random() * fallbacks.length)];
   }
 
@@ -91,15 +163,15 @@ class LLMService {
     return !!process.env.FEATHERLESS_API_KEY;
   }
 
-  // Update LLM parameters
+  // Update LLM parameters (legacy method)
   setModelParameters(params) {
     if (params.maxTokens) this.maxTokens = params.maxTokens;
     if (params.model) this.model = params.model;
-    
+
     console.log('LLM parameters updated:', { model: this.model, maxTokens: this.maxTokens });
   }
 
-  // Get current model parameters
+  // Get current model parameters (legacy method)
   getModelParameters() {
     return {
       model: this.model,

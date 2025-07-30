@@ -27,11 +27,8 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
     updateField,
     updateForm,
     resetForm,
-    llmSettings,
-    setLlmSettings,
-    hasUnsavedLlmChanges,
-    saveLlmSettings,
-    cancelLlmChanges,
+    botLlmSettings,
+    updateBotLlmSettings,
     importCharacterData,
     getCreateBotData,
     avatarColors
@@ -98,13 +95,12 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
   };
 
   const handleSaveLlmSettings = () => {
-    // TODO: Save to backend when implemented
-    saveLlmSettings();
+    // The AIConfigTab now handles its own save logic
     setActiveTab('list');
   };
 
   const handleCancelLlmSettings = () => {
-    cancelLlmChanges();
+    // The AIConfigTab now handles its own cancel logic
     setActiveTab('list');
   };
 
@@ -155,12 +151,7 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
       case 'config':
         return (
           <AIConfigTab
-            llmSettings={llmSettings}
-            onSettingsChange={setLlmSettings}
-            onSave={handleSaveLlmSettings}
             onCancel={handleCancelLlmSettings}
-            loading={false} // TODO: Add loading state when backend is implemented
-            hasUnsavedChanges={hasUnsavedLlmChanges}
           />
         );
 

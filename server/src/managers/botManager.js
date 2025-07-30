@@ -23,7 +23,7 @@ class BotManager {
         }));
     }
 
-    // Create a new bot
+    // Create a new bot with LLM settings
     createBot(config) {
         try {
             // Check if name is already taken
@@ -51,6 +51,9 @@ class BotManager {
                 exampleMessages: config.exampleMessages || '',
                 systemPrompt: config.systemPrompt || '',
 
+                // LLM Settings (bot-specific overrides)
+                llmSettings: this.validateLLMSettings(config.llmSettings),
+
                 // Legacy fields for compatibility
                 personality: 'friendly',
                 triggers: [],
@@ -63,11 +66,59 @@ class BotManager {
             console.log(`Created new LLM bot: ${newBot.username} (${newBot.id})`);
             console.log(`  - Description: ${newBot.description.substring(0, 50)}...`);
             console.log(`  - Has system prompt: ${!!newBot.systemPrompt}`);
-            console.log(`  - Has first message: ${!!newBot.firstMessage}`);
+            console.log(`  - Has LLM settings: ${!!newBot.llmSettings}`);
 
             return newBot;
         } catch (error) {
             console.error('Error creating bot:', error);
+            return null;
+        }
+    }
+
+    // Validate and sanitize LLM settings for bot
+    validateLLMSettings(llmSettings) {
+        if (!llmSettings) return null;
+
+        try {
+            const validated = {};
+
+            // Only store non-default values to save space
+            if (llmSettings.systemPrompt && llmSettings.systemPrompt.trim()) {
+                validated.systemPrompt = llmSettings.systemPrompt.trim();
+            }
+
+            if (llmSettings.temperature !== undefined && llmSettings.temperature !== 0.6) {
+                validated.temperature = Math.max(0, Math.min(2, parseFloat(llmSettings.temperature)));
+            }
+
+            if (llmSettings.topP !== undefined && llmSettings.topP !== 1.0) {
+                validated.topP = Math.max(0.01, Math.min(1, parseFloat(llmSettings.topP)));
+            }
+
+            if (llmSettings.topK !== undefined && llmSettings.topK !== -1) {
+                const topK = parseInt(llmSettings.topK);
+                validated.topK = topK === -1 ? -1 : Math.max(1, topK);
+            }
+
+            if (llmSettings.frequencyPenalty !== undefined && llmSettings.frequencyPenalty !== 0) {
+                validated.frequencyPenalty = Math.max(-2, Math.min(2, parseFloat(llmSettings.frequencyPenalty)));
+            }
+
+            if (llmSettings.presencePenalty !== undefined && llmSettings.presencePenalty !== 0) {
+                validated.presencePenalty = Math.max(-2, Math.min(2, parseFloat(llmSettings.presencePenalty)));
+            }
+
+            if (llmSettings.repetitionPenalty !== undefined && llmSettings.repetitionPenalty !== 1.0) {
+                validated.repetitionPenalty = Math.max(0.1, Math.min(2, parseFloat(llmSettings.repetitionPenalty)));
+            }
+
+            if (llmSettings.minP !== undefined && llmSettings.minP !== 0) {
+                validated.minP = Math.max(0, Math.min(1, parseFloat(llmSettings.minP)));
+            }
+
+            return Object.keys(validated).length > 0 ? validated : null;
+        } catch (error) {
+            console.warn('Invalid LLM settings provided, ignoring:', error.message);
             return null;
         }
     }
@@ -109,7 +160,7 @@ class BotManager {
         );
     }
 
-    // Get bot context for LLM
+    // Get bot context for LLM (includes bot-specific settings)
     getBotContext(botId) {
         const bot = this.getBotById(botId);
         if (!bot) return null;
@@ -119,7 +170,8 @@ class BotManager {
             description: bot.description,
             systemPrompt: bot.systemPrompt,
             firstMessage: bot.firstMessage,
-            exampleMessages: bot.exampleMessages
+            exampleMessages: bot.exampleMessages,
+            llmSettings: bot.llmSettings // Bot-specific LLM overrides
         };
     }
 

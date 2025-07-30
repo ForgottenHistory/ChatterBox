@@ -5,8 +5,8 @@ class ResponseGenerator {
         console.log('ResponseGenerator initialized');
     }
 
-    // Generate a message from an LLM bot
-    async generateMessage(bot, userMessage, room, conversationHistory = []) {
+    // Generate a message from an LLM bot with settings
+    async generateMessage(bot, userMessage, room, conversationHistory = [], globalLlmSettings = {}) {
         console.log(`Generating LLM response for bot: ${bot.username}`);
 
         try {
@@ -17,11 +17,12 @@ class ResponseGenerator {
                 throw new Error('Bot context not found');
             }
 
-            // Generate response using LLM service
+            // Generate response using LLM service with settings
             const responseContent = await llmService.generateResponse(
                 botContext,
                 userMessage,
-                conversationHistory
+                conversationHistory,
+                globalLlmSettings
             );
 
             // Update bot's last active time
@@ -69,17 +70,18 @@ class ResponseGenerator {
             description: bot.description,
             systemPrompt: bot.systemPrompt,
             firstMessage: bot.firstMessage,
-            exampleMessages: bot.exampleMessages
+            exampleMessages: bot.exampleMessages,
+            llmSettings: bot.llmSettings // Include bot-specific settings
         };
     }
 
-    // Generate multiple responses from different bots
-    async generateMultipleResponses(bots, userMessage, room, conversationHistory = []) {
+    // Generate multiple responses from different bots with settings
+    async generateMultipleResponses(bots, userMessage, room, conversationHistory = [], globalLlmSettings = {}) {
         const responses = [];
 
         for (const bot of bots) {
             try {
-                const response = await this.generateMessage(bot, userMessage, room, conversationHistory);
+                const response = await this.generateMessage(bot, userMessage, room, conversationHistory, globalLlmSettings);
                 responses.push(response);
             } catch (error) {
                 console.error(`Failed to generate response from ${bot.username}:`, error);
