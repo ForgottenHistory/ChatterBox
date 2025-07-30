@@ -202,3 +202,9 @@
   background-color: var(--bg-hover);
   color: var(--text-primary);
 }
+
+.form-optional {
+  color: var(--text-muted);
+  font-weight: normal;
+  font-size: 0.85em;
+}

@@ -332,3 +332,9 @@
 .create-first-bot-btn:hover {
  background-color: #4752C4;
 }
+
+.bots-loading {
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}

@@ -5,6 +5,7 @@ import AvatarSelector from './AvatarSelector';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Modal from './ui/Modal';
+import { FormRow } from './ui/Form';
 
 interface UserSettingsModalProps {
     isOpen: boolean;
@@ -21,26 +22,17 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }
 
     const validateUsername = (username: string): string | null => {
         const trimmed = username.trim();
-
-        if (trimmed.length < 2) {
-            return 'Username must be at least 2 characters long';
-        }
-
-        if (trimmed.length > 20) {
-            return 'Username must be less than 20 characters';
-        }
-
-        const validUsernameRegex = /^[a-zA-Z0-9\s_-]+$/;
-        if (!validUsernameRegex.test(trimmed)) {
+        if (trimmed.length < 2) return 'Username must be at least 2 characters long';
+        if (trimmed.length > 20) return 'Username must be less than 20 characters';
+        if (!/^[a-zA-Z0-9\s_-]+$/.test(trimmed)) {
             return 'Username can only contain letters, numbers, spaces, underscores, and dashes';
         }
-
         return null;
     };
 
     const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setUsername(e.target.value);
-        if (error) setError(''); // Clear error when user starts typing
+        if (error) setError('');
     };
 
     const handleSaveProfile = () => {
@@ -49,7 +41,6 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }
             setError(validationError);
             return;
         }
-
         updateUsername(username);
         setError('');
         onClose();
@@ -58,6 +49,11 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }
     const handleAvatarChange = (avatar: string, type: typeof user.avatarType) => {
         setUserAvatar(avatar, type);
     };
+
+    const tabs = [
+        { id: 'profile' as const, label: 'Profile' },
+        { id: 'avatar' as const, label: 'Avatar' }
+    ];
 
     const renderTabContent = () => {
         if (activeTab === 'profile') {
@@ -75,26 +71,24 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }
                     </div>
 
                     <div className="profile-form">
-                        <Input
-                            id="settings-username"
-                            type="text"
-                            value={username}
-                            onChange={handleUsernameChange}
-                            placeholder="Enter your username..."
-                            error={!!error}
-                            errorMessage={error}
-                            maxLength={20}
-                            label="Username"
-                        />
+                        <FormRow>
+                            <Input
+                                id="settings-username"
+                                type="text"
+                                value={username}
+                                onChange={handleUsernameChange}
+                                placeholder="Enter your username..."
+                                error={!!error}
+                                errorMessage={error}
+                                maxLength={20}
+                                label="Username"
+                            />
+                        </FormRow>
                     </div>
 
                     <div className="settings-actions">
-                        <Button variant="secondary" onClick={onClose}>
-                            Cancel
-                        </Button>
-                        <Button variant="primary" onClick={handleSaveProfile}>
-                            Save Changes
-                        </Button>
+                        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                        <Button variant="primary" onClick={handleSaveProfile}>Save Changes</Button>
                     </div>
                 </div>
             );
@@ -107,9 +101,7 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }
                     onAvatarChange={handleAvatarChange}
                 />
                 <div className="settings-actions">
-                    <Button variant="primary" onClick={onClose}>
-                        Done
-                    </Button>
+                    <Button variant="primary" onClick={onClose}>Done</Button>
                 </div>
             </div>
         );
@@ -126,18 +118,15 @@ const UserSettingsModal: React.FC<UserSettingsModalProps> = ({ isOpen, onClose }
         >
             <div className="settings-modal">
                 <div className="settings-tabs">
-                    <button
-                        className={`settings-tab ${activeTab === 'profile' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('profile')}
-                    >
-                        Profile
-                    </button>
-                    <button
-                        className={`settings-tab ${activeTab === 'avatar' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('avatar')}
-                    >
-                        Avatar
-                    </button>
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            className={`settings-tab ${activeTab === tab.id ? 'active' : ''}`}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
                 {renderTabContent()}
