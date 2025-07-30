@@ -43,42 +43,21 @@ router.get('/:botId', (req, res) => {
 });
 
 // Create new bot
-// Replace the existing POST route in botRoutes.js with this enhanced version
-
-// Create new bot
 router.post('/', (req, res) => {
   try {
-    const {
-      name,
-      personality,
+    const { 
+      name, 
       description,
-      scenario,
       firstMessage,
       exampleMessages,
       systemPrompt,
-      triggers,
-      responses,
-      avatar,
-      avatarType,
-      responseChance
+      avatar, 
+      avatarType
     } = req.body;
-
+    
     // Validate required fields
-    if (!name || !personality || !triggers || !responses) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    if (!Array.isArray(triggers) || triggers.length === 0) {
-      return res.status(400).json({ error: 'Triggers must be a non-empty array' });
-    }
-
-    if (!Array.isArray(responses) || responses.length === 0) {
-      return res.status(400).json({ error: 'Responses must be a non-empty array' });
-    }
-
-    const validPersonalities = ['friendly', 'sarcastic', 'helpful', 'mysterious', 'energetic'];
-    if (!validPersonalities.includes(personality)) {
-      return res.status(400).json({ error: 'Invalid personality type' });
+    if (!name) {
+      return res.status(400).json({ error: 'Bot name is required' });
     }
 
     // Check if name is already taken
@@ -86,20 +65,15 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Bot name is already taken' });
     }
 
-    // Create bot through service with enhanced data
+    // Create bot through service with simplified data
     const newBot = botService.createBot({
       name: name.trim(),
-      personality,
       description: description || '',
-      scenario: scenario || '',
       firstMessage: firstMessage || '',
       exampleMessages: exampleMessages || '',
       systemPrompt: systemPrompt || '',
-      triggers,
-      responses,
       avatar: avatar || '#7289DA',
-      avatarType: avatarType || 'initials',
-      responseChance: responseChance || 0.7
+      avatarType: avatarType || 'initials'
     });
 
     if (!newBot) {
@@ -110,14 +84,12 @@ router.post('/', (req, res) => {
     res.status(201).json({
       id: newBot.id,
       username: newBot.username,
-      personality: newBot.personality,
       status: newBot.status,
       avatar: newBot.avatar,
       avatarType: newBot.avatarType,
       joinedAt: newBot.joinedAt,
       lastActive: newBot.lastActive,
-      description: newBot.description,
-      scenario: newBot.scenario
+      description: newBot.description
     });
   } catch (error) {
     console.error('Error creating bot:', error);

@@ -4,7 +4,7 @@ export type ParticipantStatus = 'online' | 'away' | 'offline';
 // Avatar types
 export type AvatarType = 'initials' | 'uploaded' | 'generated';
 
-// Bot personality types
+// Bot personality types (kept for backward compatibility but not actively used)
 export type BotPersonality = 'friendly' | 'sarcastic' | 'helpful' | 'mysterious' | 'energetic';
 
 // Base interface for all chat participants
@@ -23,13 +23,19 @@ export interface User extends BaseParticipant {
   type: 'user';
 }
 
-// Bot interface (extends base participant with bot-specific properties)
+// LLM Bot interface (simplified for LLM-based bots)
 export interface Bot extends BaseParticipant {
   type: 'bot';
+  
+  // LLM-specific fields
+  description?: string;
+  exampleMessages?: string;
+  
+  // Legacy fields (kept for backward compatibility)
   personality: BotPersonality;
   triggers: string[];
   responses: string[];
-  responseChance: number; // 0-1, probability of responding
+  responseChance: number;
 }
 
 // Union type for any chat participant
@@ -56,15 +62,13 @@ export interface ChatRoom {
   isActive?: boolean;
 }
 
-// Bot creation configuration
+// Bot creation configuration (minimal)
 export interface BotConfig {
   name: string;
-  personality: BotPersonality;
-  triggers: string[];
-  responses: string[];
+  description?: string;
+  exampleMessages?: string;
   avatar?: string;
   avatarType?: AvatarType;
-  responseChance?: number;
 }
 
 // Message creation data (before it becomes a full Message)

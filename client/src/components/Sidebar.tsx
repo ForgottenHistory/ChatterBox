@@ -42,10 +42,10 @@ const Sidebar: React.FC = () => {
           status: bot.status || 'online',
           joinedAt: new Date().toISOString(),
           lastActive: new Date().toISOString(),
-          personality: bot.personality,
-          triggers: [], // These aren't exposed in the API for security
-          responses: [], // These aren't exposed in the API for security
-          responseChance: 0.7 // Default value
+          personality: 'friendly', // Legacy compatibility
+          triggers: [],
+          responses: [],
+          responseChance: 1.0
         }));
         
         setBots(properBots);
