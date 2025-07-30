@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLLMSettings } from '../../hooks/useLLMSettings';
 import { useCurrentModel } from '../../hooks/useCurrentModel';
 import LLMSettingsForm from '../ui/LLMSettingsForm';
+import ConcurrentSettingsSection from './ConcurrentSettingsSection';
 import Button from '../ui/Button';
 import ErrorBanner from '../ui/ErrorBanner';
 import ModelSelectorModal from '../ModelSelectorModal';
@@ -13,7 +14,7 @@ interface AIConfigTabProps {
 
 const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
     const [showModelSelector, setShowModelSelector] = useState(false);
-    
+
     const {
         settings,
         loading: settingsLoading,
@@ -81,7 +82,7 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
             <p className="ai-config-description">
                 Select which AI model to use for all bot responses. This affects all bots globally.
             </p>
-            
+
             <div className="model-selection-section">
                 <div className="current-model-display">
                     <div className="current-model-info">
@@ -93,7 +94,7 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                             <div className="model-id-display">{currentModel}</div>
                         )}
                     </div>
-                    
+
                     {status && (
                         <div className="model-status">
                             <span className="status-item">Provider: {status.provider}</span>
@@ -124,7 +125,7 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                     >
                         🔍 Browse Models
                     </Button>
-                    
+
                     <Button
                         variant="secondary"
                         size="small"
@@ -144,7 +145,7 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                 <div className="ai-config-header">
                     <div className="form-section-title">⚙️ Global AI Configuration</div>
                     <p className="ai-config-description">
-                        Configure the AI model and parameters that all bots will use by default.
+                        Configure the AI model, request handling, and parameters that all bots will use by default.
                     </p>
                 </div>
 
@@ -153,6 +154,8 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                 )}
 
                 {renderModelSection()}
+
+                <ConcurrentSettingsSection disabled={loading} />
 
                 <LLMSettingsForm
                     settings={settings}

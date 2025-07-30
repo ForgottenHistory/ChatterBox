@@ -23,6 +23,15 @@ class BotService {
     try {
       // Wait for LLM settings manager to initialize
       await this.llmSettingsManager.initialize();
+
+      // Sync concurrent limit from settings
+      const settings = this.llmSettingsManager.getSettings();
+      if (settings.maxConcurrent) {
+        const llmService = require('./llmService');
+        llmService.setMaxConcurrentRequests(settings.maxConcurrent);
+        console.log(`Concurrent limit loaded from settings: ${settings.maxConcurrent}`);
+      }
+
       this.initialized = true;
       console.log('BotService fully initialized');
     } catch (error) {

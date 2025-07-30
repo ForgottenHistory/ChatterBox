@@ -1,4 +1,4 @@
-const OpenAI = require('openai');
+const LLMQueueManager = require('../managers/llmQueueManager');
 const ModelManager = require('../managers/modelManager');
 const PromptManager = require('../managers/promptManager');
 const ParameterManager = require('../managers/parameterManager');
@@ -6,19 +6,16 @@ const ResponseHandler = require('../handlers/responseHandler');
 
 class LLMService {
   constructor() {
-    // Initialize OpenAI client with Featherless endpoint
-    this.client = new OpenAI({
-      baseURL: 'https://api.featherless.ai/v1',
-      apiKey: process.env.FEATHERLESS_API_KEY,
-    });
+    // Initialize queue manager with default concurrent limit
+    this.queueManager = new LLMQueueManager(4);
 
-    // Initialize managers
+    // Initialize other managers
     this.modelManager = new ModelManager();
     this.promptManager = new PromptManager();
     this.parameterManager = new ParameterManager();
     this.responseHandler = new ResponseHandler();
 
-    console.log('LLM Service initialized with modular architecture');
+    console.log('LLM Service initialized with queue system');
   }
 
   // Model management (delegate to ModelManager)
@@ -34,23 +31,32 @@ class LLMService {
     return this.modelManager.resetToDefault();
   }
 
+  // Sync concurrent limit with settings (call this after settings load)
+  syncConcurrentLimit(settings) {
+    if (settings && settings.maxConcurrent) {
+      this.setMaxConcurrentRequests(settings.maxConcurrent);
+    }
+  }
+
   async getEnhancedStatus() {
-    const status = await this.modelManager.getEnhancedStatus();
+    const modelStatus = await this.modelManager.getEnhancedStatus();
+    const queueStatus = this.queueManager.getDetailedStatus();
+
     return {
-      ...status,
+      ...modelStatus,
       configured: this.isConfigured(),
-      maxTokens: 512 // Keep for backwards compatibility
+      queue: queueStatus
     };
   }
 
-  // Main response generation method
+  // Main response generation method with queueing
   async generateResponse(botContext, userMessage, conversationHistory = [], globalLlmSettings = {}, options = {}) {
     try {
-      console.log(`Generating response for ${botContext.name} using ${this.getCurrentModel()}`);
+      console.log(`Queuing response generation for ${botContext.name}`);
 
       // Get model context length
       const contextLength = await this.modelManager.getContextLength();
-      
+
       // Prepare complete prompt
       const promptData = await this.promptManager.preparePrompt(
         botContext,
@@ -68,27 +74,30 @@ class LLMService {
         512 // maxTokens
       );
 
-      // Validate settings
-      const validation = this.parameterManager.validateParameters(apiParams);
-      if (!validation.isValid) {
-        console.warn('Invalid parameters detected:', validation.errors);
+      // Determine priority based on context
+      const priority = this.determinePriority(userMessage, botContext, options);
+
+      // Queue the request
+      const result = await this.queueManager.queueLLMRequest(
+        this.getCurrentModel(),
+        promptData.messages,
+        apiParams,
+        botContext,
+        priority
+      );
+
+      // Handle the result
+      if (result.success) {
+        const processedResponse = this.responseHandler.postProcessResponse(
+          result.content,
+          botContext
+        );
+
+        return this.responseHandler.validateResponse(processedResponse, botContext);
+      } else {
+        console.error(`Queued request failed for ${botContext.name}:`, result.error);
+        return result.fallbackContent || this.responseHandler.getFallbackResponse(botContext);
       }
-
-      console.log(`API call: ${this.getCurrentModel()}, ${promptData.messages.length} messages`);
-      console.log(`Parameters:`, this.parameterManager.getParametersSummary(apiParams));
-
-      // Make API call
-      const completion = await this.client.chat.completions.create({
-        model: this.getCurrentModel(),
-        messages: promptData.messages,
-        ...apiParams
-      });
-
-      // Process response
-      const response = this.responseHandler.processApiResponse(completion, botContext);
-      const finalResponse = this.responseHandler.postProcessResponse(response, botContext);
-      
-      return this.responseHandler.validateResponse(finalResponse, botContext);
 
     } catch (error) {
       console.error(`Error in generateResponse for ${botContext.name}:`, error);
@@ -96,20 +105,65 @@ class LLMService {
     }
   }
 
+  // Determine request priority based on context
+  determinePriority(userMessage, botContext, options) {
+    // High priority: Direct mentions or urgent responses
+    if (options.highPriority || this.isDirectMention(userMessage, botContext)) {
+      return 10;
+    }
+
+    // Low priority: Random responses or background chatter
+    if (options.lowPriority) {
+      return -10;
+    }
+
+    // Normal priority: Regular responses
+    return 0;
+  }
+
+  // Check if bot is directly mentioned
+  isDirectMention(userMessage, botContext) {
+    if (!userMessage.content) return false;
+
+    const content = userMessage.content.toLowerCase();
+    const botName = botContext.name.toLowerCase();
+
+    return content.includes(`@${botName}`) || content.includes(botName);
+  }
+
   // Configuration check
   isConfigured() {
     return !!process.env.FEATHERLESS_API_KEY;
   }
 
-  // Legacy support methods
+  // Queue management methods
+  setMaxConcurrentRequests(limit) {
+    this.queueManager.setMaxConcurrent(limit);
+    console.log(`LLM concurrent request limit set to: ${limit}`);
+  }
+
+  getQueueStatus() {
+    return this.queueManager.getDetailedStatus();
+  }
+
+  clearQueue() {
+    return this.queueManager.clearQueue();
+  }
+
+  // Legacy support methods (updated to use queue)
   setModelParameters(params) {
     if (params.model) {
       this.setModel(params.model);
     }
-    
+
+    if (params.maxConcurrent) {
+      this.setMaxConcurrentRequests(params.maxConcurrent);
+    }
+
     console.log('LLM parameters updated:', {
       model: this.getCurrentModel(),
-      configured: this.isConfigured()
+      configured: this.isConfigured(),
+      maxConcurrent: this.queueManager.maxConcurrent
     });
   }
 
@@ -117,42 +171,52 @@ class LLMService {
     return {
       model: this.getCurrentModel(),
       maxTokens: 512,
-      configured: this.isConfigured()
+      configured: this.isConfigured(),
+      maxConcurrent: this.queueManager.maxConcurrent
     };
   }
 
   getStatus() {
+    const queueStatus = this.queueManager.getStatus();
+
     return {
       configured: this.isConfigured(),
       currentModel: this.getCurrentModel(),
       defaultModel: this.modelManager.defaultModel,
       maxTokens: 512,
-      provider: 'Featherless AI'
+      provider: 'Featherless AI',
+      queue: {
+        maxConcurrent: queueStatus.maxConcurrent,
+        activeRequests: queueStatus.activeRequests,
+        queuedRequests: queueStatus.queuedRequests
+      }
     };
   }
 
   // Get detailed service information
   async getDetailedStatus() {
     const enhancedStatus = await this.getEnhancedStatus();
-    
+
     return {
       ...enhancedStatus,
       managers: {
         model: this.modelManager.getCacheStats(),
         prompt: { initialized: true },
         parameters: { initialized: true },
-        response: this.responseHandler.getStats()
+        response: this.responseHandler.getStats(),
+        queue: this.queueManager.getMetrics()
       }
     };
   }
 
-  // Clear all caches
+  // Clear all caches and reset queue
   clearCaches() {
     this.modelManager.clearCache();
-    console.log('All LLM service caches cleared');
+    this.queueManager.clearQueue();
+    console.log('All LLM service caches and queue cleared');
   }
 
-  // For testing/debugging
+  // For testing/debugging with queue
   async testGeneration(testPrompt = "Hello, how are you?") {
     const testContext = {
       name: 'TestBot',
@@ -170,13 +234,15 @@ class LLMService {
       return {
         success: true,
         response,
-        model: this.getCurrentModel()
+        model: this.getCurrentModel(),
+        queueStatus: this.getQueueStatus()
       };
     } catch (error) {
       return {
         success: false,
         error: error.message,
-        model: this.getCurrentModel()
+        model: this.getCurrentModel(),
+        queueStatus: this.getQueueStatus()
       };
     }
   }

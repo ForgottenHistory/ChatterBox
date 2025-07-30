@@ -127,16 +127,16 @@ router.get('/tokens/estimate', (req, res) => {
   try {
     const { text } = req.query;
     const tokenEstimator = require('../services/tokenEstimator');
-    
+
     if (!text) {
       return res.status(400).json({
         success: false,
         error: 'Text parameter is required'
       });
     }
-    
+
     const tokens = tokenEstimator.estimateTokens(text);
-    
+
     res.json({
       success: true,
       text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
@@ -158,7 +158,7 @@ router.get('/tokens/config', (req, res) => {
   try {
     const tokenEstimator = require('../services/tokenEstimator');
     const config = tokenEstimator.getConfig();
-    
+
     res.json({
       success: true,
       config
@@ -254,9 +254,9 @@ router.post('/test', async (req, res) => {
   try {
     const { prompt = "Hello, how are you?" } = req.body;
     const llmService = require('../services/llmService');
-    
+
     const result = await llmService.testGeneration(prompt);
-    
+
     res.json({
       success: true,
       test: result
@@ -275,7 +275,7 @@ router.get('/status/detailed', async (req, res) => {
   try {
     const llmService = require('../services/llmService');
     const status = await llmService.getDetailedStatus();
-    
+
     res.json({
       success: true,
       status
@@ -285,6 +285,76 @@ router.get('/status/detailed', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get detailed status'
+    });
+  }
+});
+
+// Queue management endpoints
+
+// Get queue status
+router.get('/queue/status', (req, res) => {
+  try {
+    const llmService = require('../services/llmService');
+    const status = llmService.getQueueStatus();
+
+    res.json({
+      success: true,
+      queue: status
+    });
+  } catch (error) {
+    console.error('Error getting queue status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get queue status'
+    });
+  }
+});
+
+// Update concurrent request limit
+router.post('/queue/concurrent-limit', (req, res) => {
+  try {
+    const { limit } = req.body;
+
+    if (!limit || !Number.isInteger(limit) || limit < 1 || limit > 20) {
+      return res.status(400).json({
+        success: false,
+        error: 'Limit must be an integer between 1 and 20'
+      });
+    }
+
+    const llmService = require('../services/llmService');
+    llmService.setMaxConcurrentRequests(limit);
+
+    res.json({
+      success: true,
+      message: `Concurrent request limit set to ${limit}`,
+      queue: llmService.getQueueStatus()
+    });
+  } catch (error) {
+    console.error('Error setting concurrent limit:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to set concurrent limit'
+    });
+  }
+});
+
+// Clear request queue (emergency)
+router.post('/queue/clear', (req, res) => {
+  try {
+    const llmService = require('../services/llmService');
+    const clearedCount = llmService.clearQueue();
+
+    res.json({
+      success: true,
+      message: `Queue cleared: ${clearedCount} requests cancelled`,
+      queue: llmService.getQueueStatus()
+    });
+  } catch (error) {
+    console.error('Error clearing queue:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear queue'
     });
   }
 });

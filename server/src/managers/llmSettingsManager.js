@@ -12,7 +12,8 @@ class LLMSettingsManager {
             frequencyPenalty: 0,
             presencePenalty: 0,
             repetitionPenalty: 1.0,
-            minP: 0
+            minP: 0,
+            maxConcurrent: 1
         };
 
         // Current settings (start with defaults)
