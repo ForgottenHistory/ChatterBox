@@ -1,4 +1,5 @@
 const llmService = require('../llmService');
+const textFormatter = require('../textFormatter');
 
 class ResponseGenerator {
     constructor() {
@@ -25,12 +26,21 @@ class ResponseGenerator {
                 globalLlmSettings
             );
 
+            // Format the response to remove RP actions and duplicate names
+            const formattedContent = textFormatter.formatBotMessage(responseContent, bot.username);
+
+            // If formatting returned null (message was entirely actions), use fallback
+            if (!formattedContent) {
+                console.log(`Response from ${bot.username} was entirely actions, using fallback`);
+                return this.generateFallbackMessage(bot, room);
+            }
+
             // Update bot's last active time
             bot.lastActive = new Date().toISOString();
 
             return {
                 id: `${Date.now()}-${bot.id}-${Math.random().toString(36).substr(2, 9)}`,
-                content: responseContent,
+                content: formattedContent,
                 timestamp: new Date().toISOString(),
                 room: room,
                 author: {
