@@ -26,11 +26,11 @@ export interface User extends BaseParticipant {
 // LLM Bot interface (simplified for LLM-based bots)
 export interface Bot extends BaseParticipant {
   type: 'bot';
-  
+
   // LLM-specific fields
   description?: string;
   exampleMessages?: string;
-  
+
   // Legacy fields (kept for backward compatibility)
   personality: BotPersonality;
   triggers: string[];

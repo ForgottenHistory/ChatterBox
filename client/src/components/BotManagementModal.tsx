@@ -179,9 +179,9 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
       showCloseButton={true}
     >
       <div className="bot-management-modal">
-        <ErrorBanner 
-          error={error || fetchBots.error || createBot.error || deleteBot.error} 
-          onDismiss={dismissAllErrors} 
+        <ErrorBanner
+          error={error || fetchBots.error || createBot.error || deleteBot.error}
+          onDismiss={dismissAllErrors}
         />
 
         <div className="modal-tabs">
