@@ -1,5 +1,8 @@
 const OpenAI = require('openai');
-const PromptBuilder = require('./bot/promptBuilder');
+const ModelManager = require('../managers/modelManager');
+const PromptManager = require('../managers/promptManager');
+const ParameterManager = require('../managers/parameterManager');
+const ResponseHandler = require('../handlers/responseHandler');
 
 class LLMService {
   constructor() {
@@ -9,264 +12,173 @@ class LLMService {
       apiKey: process.env.FEATHERLESS_API_KEY,
     });
 
-    this.defaultModel = 'moonshotai/Kimi-K2-Instruct';
-    this.currentModel = this.defaultModel;
-    this.maxTokens = 512;
-    this.promptBuilder = new PromptBuilder();
+    // Initialize managers
+    this.modelManager = new ModelManager();
+    this.promptManager = new PromptManager();
+    this.parameterManager = new ParameterManager();
+    this.responseHandler = new ResponseHandler();
 
-    console.log('LLM Service initialized with Featherless API');
+    console.log('LLM Service initialized with modular architecture');
   }
 
-  // Set the current model
-  setModel(modelId) {
-    if (!modelId || typeof modelId !== 'string') {
-      console.warn('Invalid model ID provided, keeping current model');
-      return false;
-    }
-
-    this.currentModel = modelId;
-    console.log(`LLM model changed to: ${modelId}`);
-    return true;
-  }
-
-  // Get current model
+  // Model management (delegate to ModelManager)
   getCurrentModel() {
-    return this.currentModel;
+    return this.modelManager.getCurrentModel();
   }
 
-  // Reset to default model
+  setModel(modelId) {
+    return this.modelManager.setModel(modelId);
+  }
+
   resetToDefaultModel() {
-    this.currentModel = this.defaultModel;
-    console.log(`LLM model reset to default: ${this.defaultModel}`);
-    return this.defaultModel;
+    return this.modelManager.resetToDefault();
   }
 
-  // Validate prompt locally
-  validatePrompt(prompt) {
-    if (!prompt || typeof prompt !== 'string') {
-      throw new Error('Invalid prompt: must be a non-empty string');
-    }
-
-    if (prompt.length > 8000) {
-      console.warn('Prompt is very long, truncating for API limits');
-      return prompt.substring(0, 8000) + '...';
-    }
-
-    return prompt.trim();
+  async getEnhancedStatus() {
+    const status = await this.modelManager.getEnhancedStatus();
+    return {
+      ...status,
+      configured: this.isConfigured(),
+      maxTokens: 512 // Keep for backwards compatibility
+    };
   }
 
-  // Generate a response for a bot given the context and settings
+  // Main response generation method
   async generateResponse(botContext, userMessage, conversationHistory = [], globalLlmSettings = {}, options = {}) {
     try {
-      // Build the system prompt using PromptBuilder with global settings
-      const systemPrompt = this.promptBuilder.buildSystemPrompt(
+      console.log(`Generating response for ${botContext.name} using ${this.getCurrentModel()}`);
+
+      // Get model context length
+      const contextLength = await this.modelManager.getContextLength();
+      
+      // Prepare complete prompt
+      const promptData = await this.promptManager.preparePrompt(
         botContext,
-        options.authorNote || null,
-        globalLlmSettings
+        userMessage,
+        conversationHistory,
+        globalLlmSettings,
+        contextLength,
+        options
       );
 
-      // Validate the prompt
-      const validatedPrompt = this.validatePrompt(systemPrompt);
+      // Prepare API parameters
+      const apiParams = this.parameterManager.prepareApiParams(
+        globalLlmSettings,
+        botContext.llmSettings,
+        512 // maxTokens
+      );
 
-      // Build conversation messages in order
-      const messages = [
-        { role: 'system', content: validatedPrompt }
-      ];
-
-      // Add conversation history (last 5 messages for context)
-      const recentHistory = conversationHistory.slice(-5);
-      recentHistory.forEach(msg => {
-        messages.push({
-          role: msg.isBot ? 'assistant' : 'user',
-          content: `${msg.username}: ${msg.content}`
-        });
-      });
-
-      // Add the current user message
-      messages.push({
-        role: 'user',
-        content: `${userMessage.author.username}: ${userMessage.content}`
-      });
-
-      console.log(`Using model: ${this.currentModel}`);
-      console.log('Messages sent to LLM:', messages.map(m => ({
-        role: m.role,
-        content: m.content.substring(0, 100) + '...'
-      })));
-
-      // Merge global settings with bot-specific overrides
-      const finalSettings = this.mergeSettings(globalLlmSettings, botContext.llmSettings);
-
-      console.log('Using LLM settings:', finalSettings);
-
-      const completion = await this.client.chat.completions.create({
-        model: this.currentModel,
-        max_tokens: this.maxTokens,
-        messages: messages,
-        ...finalSettings
-      });
-
-      const response = completion.choices[0]?.message?.content;
-
-      if (!response) {
-        throw new Error('No response generated from LLM');
+      // Validate settings
+      const validation = this.parameterManager.validateParameters(apiParams);
+      if (!validation.isValid) {
+        console.warn('Invalid parameters detected:', validation.errors);
       }
 
-      console.log(`LLM Response for ${botContext.name}:`, response.substring(0, 100) + '...');
-      return response.trim();
+      console.log(`API call: ${this.getCurrentModel()}, ${promptData.messages.length} messages`);
+      console.log(`Parameters:`, this.parameterManager.getParametersSummary(apiParams));
+
+      // Make API call
+      const completion = await this.client.chat.completions.create({
+        model: this.getCurrentModel(),
+        messages: promptData.messages,
+        ...apiParams
+      });
+
+      // Process response
+      const response = this.responseHandler.processApiResponse(completion, botContext);
+      const finalResponse = this.responseHandler.postProcessResponse(response, botContext);
+      
+      return this.responseHandler.validateResponse(finalResponse, botContext);
 
     } catch (error) {
-      console.error(`Error generating LLM response for ${botContext.name}:`, error);
-
-      // Return a fallback response
-      return this.getFallbackResponse(botContext);
+      console.error(`Error in generateResponse for ${botContext.name}:`, error);
+      return this.responseHandler.handleApiError(error, botContext);
     }
   }
 
-  // Merge global LLM settings with bot-specific overrides
-  mergeSettings(globalSettings, botSettings) {
-    const merged = {};
-
-    // Start with global settings
-    if (globalSettings.temperature !== undefined) {
-      merged.temperature = globalSettings.temperature;
-    }
-
-    if (globalSettings.topP !== undefined) {
-      merged.top_p = globalSettings.topP;
-    }
-
-    if (globalSettings.topK !== undefined && globalSettings.topK !== -1) {
-      merged.top_k = globalSettings.topK;
-    }
-
-    if (globalSettings.frequencyPenalty !== undefined && globalSettings.frequencyPenalty !== 0) {
-      merged.frequency_penalty = globalSettings.frequencyPenalty;
-    }
-
-    if (globalSettings.presencePenalty !== undefined && globalSettings.presencePenalty !== 0) {
-      merged.presence_penalty = globalSettings.presencePenalty;
-    }
-
-    if (globalSettings.repetitionPenalty !== undefined && globalSettings.repetitionPenalty !== 1.0) {
-      merged.repetition_penalty = globalSettings.repetitionPenalty;
-    }
-
-    if (globalSettings.minP !== undefined && globalSettings.minP !== 0) {
-      merged.min_p = globalSettings.minP;
-    }
-
-    // Override with bot-specific settings if they exist
-    if (botSettings) {
-      if (botSettings.temperature !== undefined) {
-        merged.temperature = botSettings.temperature;
-      }
-
-      if (botSettings.topP !== undefined) {
-        merged.top_p = botSettings.topP;
-      }
-
-      if (botSettings.topK !== undefined && botSettings.topK !== -1) {
-        merged.top_k = botSettings.topK;
-      }
-
-      if (botSettings.frequencyPenalty !== undefined && botSettings.frequencyPenalty !== 0) {
-        merged.frequency_penalty = botSettings.frequencyPenalty;
-      }
-
-      if (botSettings.presencePenalty !== undefined && botSettings.presencePenalty !== 0) {
-        merged.presence_penalty = botSettings.presencePenalty;
-      }
-
-      if (botSettings.repetitionPenalty !== undefined && botSettings.repetitionPenalty !== 1.0) {
-        merged.repetition_penalty = botSettings.repetitionPenalty;
-      }
-
-      if (botSettings.minP !== undefined && botSettings.minP !== 0) {
-        merged.min_p = botSettings.minP;
-      }
-    }
-
-    return merged;
-  }
-
-  // Fallback response when LLM fails
-  getFallbackResponse(botContext) {
-    const fallbacks = [
-      `Hi! I'm ${botContext.name}. How can I help?`,
-      `Hello there! ${botContext.name} at your service.`,
-      `Hey! What would you like to chat about?`,
-      `Greetings! I'm here and ready to talk.`
-    ];
-
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
-  }
-
-  // Check if the service is configured properly
+  // Configuration check
   isConfigured() {
     return !!process.env.FEATHERLESS_API_KEY;
   }
 
-  // Update LLM parameters (legacy method)
+  // Legacy support methods
   setModelParameters(params) {
-    if (params.maxTokens) this.maxTokens = params.maxTokens;
-    if (params.model) this.setModel(params.model);
-
+    if (params.model) {
+      this.setModel(params.model);
+    }
+    
     console.log('LLM parameters updated:', {
-      model: this.currentModel,
-      maxTokens: this.maxTokens
+      model: this.getCurrentModel(),
+      configured: this.isConfigured()
     });
   }
 
-  // Get current model parameters (legacy method)
   getModelParameters() {
     return {
-      model: this.currentModel,
-      maxTokens: this.maxTokens,
+      model: this.getCurrentModel(),
+      maxTokens: 512,
       configured: this.isConfigured()
     };
   }
 
-  // Get service status with model info
   getStatus() {
     return {
       configured: this.isConfigured(),
-      currentModel: this.currentModel,
-      defaultModel: this.defaultModel,
-      maxTokens: this.maxTokens,
+      currentModel: this.getCurrentModel(),
+      defaultModel: this.modelManager.defaultModel,
+      maxTokens: 512,
       provider: 'Featherless AI'
     };
   }
 
-  // Get enhanced status with current model details
-  async getEnhancedStatus() {
-    const basicStatus = this.getStatus();
+  // Get detailed service information
+  async getDetailedStatus() {
+    const enhancedStatus = await this.getEnhancedStatus();
+    
+    return {
+      ...enhancedStatus,
+      managers: {
+        model: this.modelManager.getCacheStats(),
+        prompt: { initialized: true },
+        parameters: { initialized: true },
+        response: this.responseHandler.getStats()
+      }
+    };
+  }
+
+  // Clear all caches
+  clearCaches() {
+    this.modelManager.clearCache();
+    console.log('All LLM service caches cleared');
+  }
+
+  // For testing/debugging
+  async testGeneration(testPrompt = "Hello, how are you?") {
+    const testContext = {
+      name: 'TestBot',
+      description: 'A test bot for debugging',
+      firstMessage: 'Hello! I am a test bot.'
+    };
+
+    const testMessage = {
+      content: testPrompt,
+      author: { username: 'TestUser' }
+    };
 
     try {
-      // Fetch current model details from Featherless API
-      const response = await fetch('https://api.featherless.ai/v1/models');
-      if (response.ok) {
-        const data = await response.json();
-        const currentModelData = data.data.find(model => model.id === this.currentModel);
-
-        if (currentModelData) {
-          return {
-            ...basicStatus,
-            modelDetails: {
-              contextLength: currentModelData.context_length,
-              maxCompletionTokens: currentModelData.max_completion_tokens,
-              modelClass: currentModelData.model_class,
-              isGated: currentModelData.is_gated || false
-            }
-          };
-        }
-      }
+      const response = await this.generateResponse(testContext, testMessage);
+      return {
+        success: true,
+        response,
+        model: this.getCurrentModel()
+      };
     } catch (error) {
-      console.warn('Could not fetch model details:', error);
+      return {
+        success: false,
+        error: error.message,
+        model: this.getCurrentModel()
+      };
     }
-
-    // Return basic status if we can't fetch model details
-    return basicStatus;
   }
 }
 

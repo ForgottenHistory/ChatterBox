@@ -122,6 +122,56 @@ router.get('/status', (req, res) => {
   }
 });
 
+// Get token estimation info
+router.get('/tokens/estimate', (req, res) => {
+  try {
+    const { text } = req.query;
+    const tokenEstimator = require('../services/tokenEstimator');
+    
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'Text parameter is required'
+      });
+    }
+    
+    const tokens = tokenEstimator.estimateTokens(text);
+    
+    res.json({
+      success: true,
+      text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+      estimatedTokens: tokens,
+      textLength: text.length,
+      charsPerToken: tokenEstimator.getConfig().charsPerToken
+    });
+  } catch (error) {
+    console.error('Error estimating tokens:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to estimate tokens'
+    });
+  }
+});
+
+// Get token estimator configuration
+router.get('/tokens/config', (req, res) => {
+  try {
+    const tokenEstimator = require('../services/tokenEstimator');
+    const config = tokenEstimator.getConfig();
+    
+    res.json({
+      success: true,
+      config
+    });
+  } catch (error) {
+    console.error('Error getting token config:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get token configuration'
+    });
+  }
+});
+
 // Get current model
 router.get('/model', async (req, res) => {
   try {
@@ -195,6 +245,46 @@ router.post('/model/reset', (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to reset model'
+    });
+  }
+});
+
+// Test LLM generation
+router.post('/test', async (req, res) => {
+  try {
+    const { prompt = "Hello, how are you?" } = req.body;
+    const llmService = require('../services/llmService');
+    
+    const result = await llmService.testGeneration(prompt);
+    
+    res.json({
+      success: true,
+      test: result
+    });
+  } catch (error) {
+    console.error('Error testing LLM:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to test LLM generation'
+    });
+  }
+});
+
+// Get detailed service status
+router.get('/status/detailed', async (req, res) => {
+  try {
+    const llmService = require('../services/llmService');
+    const status = await llmService.getDetailedStatus();
+    
+    res.json({
+      success: true,
+      status
+    });
+  } catch (error) {
+    console.error('Error getting detailed status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get detailed status'
     });
   }
 });
