@@ -1,0 +1,219 @@
+/* User Avatar Styles */
+.user-avatar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.user-avatar-content {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-avatar.clickable {
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.user-avatar.clickable:hover {
+    transform: scale(1.05);
+}
+
+/* Avatar Sizes */
+.user-avatar.avatar-small {
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+}
+
+.user-avatar.avatar-medium {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+}
+
+.user-avatar.avatar-large {
+    width: 64px;
+    height: 64px;
+    font-size: 1.2rem;
+}
+
+.user-avatar.avatar-extra-large {
+    width: 160px !important;
+    height: 160px !important;
+    font-size: 3rem !important;
+    font-weight: 700;
+}
+
+/* Avatar Images */
+.avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
+}
+
+.user-avatar:has(.avatar-image) {
+    background-color: transparent !important;
+}
+
+.user-avatar[data-type="uploaded"] {
+    background-color: transparent !important;
+}
+
+.avatar-generated {
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Status Indicators */
+.status-indicator {
+    position: absolute;
+    border-radius: 50%;
+    border: 3px solid var(--bg-darker);
+    z-index: 10;
+}
+
+.user-avatar.avatar-small .status-indicator {
+    width: 8px;
+    height: 8px;
+    bottom: -2px;
+    right: -2px;
+    border-width: 2px;
+}
+
+.user-avatar.avatar-medium .status-indicator {
+    width: 12px;
+    height: 12px;
+    bottom: -3px;
+    right: -3px;
+    border-width: 2px;
+}
+
+.user-avatar.avatar-large .status-indicator {
+    width: 18px;
+    height: 18px;
+    bottom: -4px;
+    right: -4px;
+    border-width: 3px;
+}
+
+.user-avatar.avatar-extra-large .status-indicator {
+    width: 32px;
+    height: 32px;
+    bottom: -8px;
+    right: -8px;
+    border-width: 6px;
+}
+
+/* Bot Avatar Specific */
+.bot-avatar {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    background-color: var(--bot-badge);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    margin-right: 0.7rem;
+}
+
+/* Avatar Setup Components */
+.avatar-selector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.avatar-preview-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.avatar-preview-section h4 {
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.avatar-display,
+.avatar-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    margin: 1rem 0;
+}
+
+.avatar-controls,
+.avatar-options {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+}
+
+.upload-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.avatar-info,
+.initials-info {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+    font-style: italic;
+}
+
+.initials-info {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.upload-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.uploaded-avatar-preview {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background-color: var(--bg-dark);
+    border-radius: 8px;
+    border: 1px solid var(--bg-hover);
+}
+
+.avatar-preview-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--bg-hover);
+}
