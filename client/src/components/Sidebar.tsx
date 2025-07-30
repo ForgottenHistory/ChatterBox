@@ -4,6 +4,7 @@ import { useProfileModal } from '../hooks/useProfileModal';
 import UserPanel from './UserPanel';
 import UserAvatar from './UserAvatar';
 import UserProfileModal from './UserProfileModal';
+import BotManagementModal from './BotManagementModal';
 
 interface Channel {
   id: string;
@@ -15,6 +16,7 @@ interface Channel {
 const Sidebar: React.FC = () => {
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showBotManagement, setShowBotManagement] = useState(false);
   const { isOpen, selectedUser, showProfile, hideProfile } = useProfileModal();
 
   const channels: Channel[] = [
@@ -24,45 +26,55 @@ const Sidebar: React.FC = () => {
   ];
 
   // Fetch bots from the API
-  useEffect(() => {
-    const fetchBots = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/bots');
-        if (response.ok) {
-          const botData = await response.json();
-          
-          // Convert API response to proper Bot objects
-          const properBots: Bot[] = botData.map((bot: any) => ({
-            type: 'bot' as const,
-            id: bot.id,
-            username: bot.username,
-            avatar: bot.avatar,
-            avatarType: bot.avatarType || 'initials',
-            status: bot.status || 'online',
-            joinedAt: new Date().toISOString(),
-            lastActive: new Date().toISOString(),
-            personality: bot.personality,
-            triggers: [], // These aren't exposed in the API for security
-            responses: [], // These aren't exposed in the API for security
-            responseChance: 0.7 // Default value
-          }));
-          
-          setBots(properBots);
-        } else {
-          console.error('Failed to fetch bots');
-        }
-      } catch (error) {
-        console.error('Error fetching bots:', error);
-      } finally {
-        setLoading(false);
+  const fetchBots = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/bots');
+      if (response.ok) {
+        const botData = await response.json();
+        
+        // Convert API response to proper Bot objects
+        const properBots: Bot[] = botData.map((bot: any) => ({
+          type: 'bot' as const,
+          id: bot.id,
+          username: bot.username,
+          avatar: bot.avatar,
+          avatarType: bot.avatarType || 'initials',
+          status: bot.status || 'online',
+          joinedAt: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+          personality: bot.personality,
+          triggers: [], // These aren't exposed in the API for security
+          responses: [], // These aren't exposed in the API for security
+          responseChance: 0.7 // Default value
+        }));
+        
+        setBots(properBots);
+      } else {
+        console.error('Failed to fetch bots');
       }
-    };
+    } catch (error) {
+      console.error('Error fetching bots:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchBots();
   }, []);
 
   const handleBotClick = (bot: Bot) => {
     showProfile(bot);
+  };
+
+  const handleManageBots = () => {
+    setShowBotManagement(true);
+  };
+
+  const handleBotManagementClose = () => {
+    setShowBotManagement(false);
+    // Refresh bots list when modal closes
+    fetchBots();
   };
 
   return (
@@ -85,12 +97,31 @@ const Sidebar: React.FC = () => {
         <div className="sidebar-section">
           <div className="section-header">
             <span>AI BOTS</span>
-            <span className="bot-count">{loading ? '...' : bots.length}</span>
+            <div className="section-header-actions">
+              <span className="bot-count">{loading ? '...' : bots.length}</span>
+              <button 
+                className="manage-bots-btn"
+                onClick={handleManageBots}
+                title="Manage Bots"
+              >
+                ⚙️
+              </button>
+            </div>
           </div>
           <div className="bots-list">
             {loading ? (
               <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0.5rem' }}>
                 Loading bots...
+              </div>
+            ) : bots.length === 0 ? (
+              <div className="empty-bots-state">
+                <p>No bots yet</p>
+                <button 
+                  className="create-first-bot-btn"
+                  onClick={handleManageBots}
+                >
+                  Create your first bot
+                </button>
               </div>
             ) : (
               bots.map(bot => (
@@ -123,6 +154,11 @@ const Sidebar: React.FC = () => {
         isOpen={isOpen}
         onClose={hideProfile}
         user={selectedUser}
+      />
+
+      <BotManagementModal
+        isOpen={showBotManagement}
+        onClose={handleBotManagementClose}
       />
     </>
   );

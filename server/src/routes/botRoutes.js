@@ -42,6 +42,89 @@ router.get('/:botId', (req, res) => {
   }
 });
 
+// Create new bot
+router.post('/', (req, res) => {
+  try {
+    const { name, personality, triggers, responses, avatar, responseChance } = req.body;
+    
+    // Validate required fields
+    if (!name || !personality || !triggers || !responses) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (!Array.isArray(triggers) || triggers.length === 0) {
+      return res.status(400).json({ error: 'Triggers must be a non-empty array' });
+    }
+
+    if (!Array.isArray(responses) || responses.length === 0) {
+      return res.status(400).json({ error: 'Responses must be a non-empty array' });
+    }
+
+    const validPersonalities = ['friendly', 'sarcastic', 'helpful', 'mysterious', 'energetic'];
+    if (!validPersonalities.includes(personality)) {
+      return res.status(400).json({ error: 'Invalid personality type' });
+    }
+
+    // Check if name is already taken
+    if (botService.isBotNameTaken(name.trim())) {
+      return res.status(400).json({ error: 'Bot name is already taken' });
+    }
+
+    // Create bot through service
+    const newBot = botService.createBot({
+      name: name.trim(),
+      personality,
+      triggers,
+      responses,
+      avatar: avatar || '#7289DA',
+      responseChance: responseChance || 0.7
+    });
+
+    if (!newBot) {
+      return res.status(400).json({ error: 'Failed to create bot' });
+    }
+
+    // Return public bot data
+    res.status(201).json({
+      id: newBot.id,
+      username: newBot.username,
+      personality: newBot.personality,
+      status: newBot.status,
+      avatar: newBot.avatar,
+      avatarType: newBot.avatarType,
+      joinedAt: newBot.joinedAt,
+      lastActive: newBot.lastActive
+    });
+  } catch (error) {
+    console.error('Error creating bot:', error);
+    res.status(500).json({ error: 'Failed to create bot' });
+  }
+});
+
+// Delete bot
+router.delete('/:botId', (req, res) => {
+  try {
+    const { botId } = req.params;
+    
+    // Prevent deletion of default bots
+    const defaultBotIds = ['chatty-bot', 'sarcastic-ai', 'helper-bot'];
+    if (defaultBotIds.includes(botId)) {
+      return res.status(400).json({ error: 'Cannot delete default bots' });
+    }
+    
+    const deleted = botService.deleteBot(botId);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Bot not found' });
+    }
+    
+    res.json({ success: true, message: 'Bot deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting bot:', error);
+    res.status(500).json({ error: 'Failed to delete bot' });
+  }
+});
+
 // Update bot status (for future admin features)
 router.patch('/:botId/status', (req, res) => {
   try {

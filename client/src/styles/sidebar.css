@@ -279,3 +279,56 @@
 .clickable-bot:hover .bot-name {
   color: var(--brand-blue);
 }
+
+/* Bot Management Button Styles */
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.manage-bots-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.2rem;
+  border-radius: 3px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.manage-bots-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.empty-bots-state {
+  padding: 1rem 0.5rem;
+  text-align: center;
+}
+
+.empty-bots-state p {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem 0;
+}
+
+.create-first-bot-btn {
+ background-color: var(--brand-blue);
+ color: var(--text-primary);
+ border: none;
+ border-radius: 4px;
+ padding: 0.5rem 0.75rem;
+ font-size: 0.75rem;
+ font-weight: 600;
+ cursor: pointer;
+ transition: background-color 0.2s;
+}
+
+.create-first-bot-btn:hover {
+ background-color: #4752C4;
+}

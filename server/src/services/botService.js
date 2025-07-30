@@ -76,6 +76,70 @@ class BotService {
     return this.bots.find(bot => bot.id === botId);
   }
 
+  // Create a new bot
+  createBot(config) {
+    try {
+      // Check if name is already taken
+      if (this.isBotNameTaken(config.name)) {
+        console.log(`Bot name '${config.name}' is already taken`);
+        return null;
+      }
+
+      const now = new Date().toISOString();
+      const botId = `bot-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const newBot = {
+        type: 'bot',
+        id: botId,
+        username: config.name,
+        avatar: config.avatar || '#7289DA',
+        avatarType: 'initials',
+        status: 'online',
+        joinedAt: now,
+        lastActive: now,
+        personality: config.personality,
+        triggers: config.triggers,
+        responses: config.responses,
+        responseChance: config.responseChance || 0.7
+      };
+
+      // Add to bots array
+      this.bots.push(newBot);
+      
+      console.log(`Created new bot: ${newBot.username} (${newBot.id})`);
+      return newBot;
+    } catch (error) {
+      console.error('Error creating bot:', error);
+      return null;
+    }
+  }
+
+  // Delete a bot
+  deleteBot(botId) {
+    try {
+      const initialLength = this.bots.length;
+      this.bots = this.bots.filter(bot => bot.id !== botId);
+      
+      const wasDeleted = this.bots.length < initialLength;
+      
+      if (wasDeleted) {
+        console.log(`Deleted bot: ${botId}`);
+      }
+      
+      return wasDeleted;
+    } catch (error) {
+      console.error('Error deleting bot:', error);
+      return false;
+    }
+  }
+
+  // Check if bot name already exists
+  isBotNameTaken(name) {
+    return this.bots.some(bot => 
+      bot.username.toLowerCase() === name.toLowerCase()
+    );
+  }
+
   // Check if a message should trigger bot responses
   shouldRespond(message) {
     console.log('Checking if message should trigger bots:', message);
@@ -176,7 +240,9 @@ class BotService {
       personality: bot.personality,
       status: bot.status,
       avatar: bot.avatar,
-      avatarType: bot.avatarType
+      avatarType: bot.avatarType,
+      joinedAt: bot.joinedAt,
+      lastActive: bot.lastActive
     }));
   }
 
