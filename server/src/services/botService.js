@@ -1,74 +1,8 @@
-// Bot configurations with avatar colors
-const botConfigs = [
-  {
-    id: 'chatty-bot',
-    name: 'ChattyBot',
-    personality: 'friendly',
-    triggers: ['hello', 'hi', 'hey', 'chatty'],
-    responses: [
-      "Hey there! How's everyone doing today? 😊",
-      "Hello! Great to see some activity in here!",
-      "Hi! I'm ChattyBot, always ready for a good conversation!",
-      "Hey! What's on your mind today?"
-    ],
-    avatar: '#43B581', // Green for friendly
-    responseChance: 0.7
-  },
-  {
-    id: 'sarcastic-ai',
-    name: 'SarcasticAI',
-    personality: 'sarcastic',
-    triggers: ['help', 'thanks', 'thank you', 'sarcastic'],
-    responses: [
-      "Oh, how *wonderful* that you need help... 🙄",
-      "Thanks? How surprising, someone with manners!",
-      "Well, well, well... look who needs assistance.",
-      "Sure, because helping humans is *exactly* what I live for."
-    ],
-    avatar: '#F04747', // Red for sarcastic
-    responseChance: 0.6
-  },
-  {
-    id: 'helper-bot',
-    name: 'HelperBot',
-    personality: 'helpful',
-    triggers: ['help', 'how', 'what', 'helper'],
-    responses: [
-      "I'm here to help! What do you need assistance with?",
-      "Happy to help! Feel free to ask me anything.",
-      "How can I assist you today? I'm at your service!",
-      "Always ready to lend a helping hand! 🤝"
-    ],
-    avatar: '#5865F2', // Blue for helpful
-    responseChance: 0.8
-  }
-];
-
 class BotService {
   constructor() {
-    this.bots = this.initializeBots();
+    this.bots = []; // Start with empty array instead of default bots
     this.responseDelay = 1000; // 1 second delay to make it feel natural
     console.log('BotService initialized with', this.bots.length, 'bots');
-  }
-
-  // Initialize bots with proper Bot interface
-  initializeBots() {
-    const now = new Date().toISOString();
-
-    return botConfigs.map(config => ({
-      type: 'bot',
-      id: config.id,
-      username: config.name,
-      avatar: config.avatar,
-      avatarType: 'initials',
-      status: 'online',
-      joinedAt: now,
-      lastActive: now,
-      personality: config.personality,
-      triggers: config.triggers,
-      responses: config.responses,
-      responseChance: config.responseChance
-    }));
   }
 
   // Get bot by ID

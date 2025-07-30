@@ -106,12 +106,6 @@ router.delete('/:botId', (req, res) => {
   try {
     const { botId } = req.params;
     
-    // Prevent deletion of default bots
-    const defaultBotIds = ['chatty-bot', 'sarcastic-ai', 'helper-bot'];
-    if (defaultBotIds.includes(botId)) {
-      return res.status(400).json({ error: 'Cannot delete default bots' });
-    }
-    
     const deleted = botService.deleteBot(botId);
     
     if (!deleted) {
