@@ -7,10 +7,10 @@ interface ChatHeaderProps {
   roomName?: string;
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ 
-  connected, 
-  onInspectPrompts, 
-  roomName = 'general' 
+const ChatHeader: React.FC<ChatHeaderProps> = ({
+  connected,
+  onInspectPrompts,
+  roomName = 'general'
 }) => {
   return (
     <div className="chat-header">

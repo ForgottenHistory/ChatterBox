@@ -24,7 +24,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onUserClick }) => {
       if (timestamp.includes(':') && !timestamp.includes('T')) {
         return timestamp;
       }
-      
+
       // If it's an ISO string, convert to time
       const date = new Date(timestamp);
       return date.toLocaleTimeString();
@@ -35,17 +35,17 @@ const MessageList: React.FC<MessageListProps> = ({ messages, onUserClick }) => {
 
   const renderMessage = (message: Message) => {
     const isBot = message.author.type === 'bot';
-    
+
     return (
       <div key={message.id} className={`message ${isBot ? 'bot-message' : 'user-message'}`}>
         <div className="message-header">
-          <UserAvatar 
+          <UserAvatar
             user={message.author}
             size="small"
             showStatus={false}
             onClick={() => onUserClick(message.author)}
           />
-          <span 
+          <span
             className={`username ${isBot ? 'bot-username' : ''} clickable-username`}
             onClick={() => onUserClick(message.author)}
           >
