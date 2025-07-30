@@ -71,18 +71,17 @@ class BotService {
   async processMessage(userMessage, room) {
     console.log('Processing message for LLM bots in room:', room);
 
-    // Add user message to history first
-    this.addToHistory(userMessage);
-
-    // Determine which bots should respond
+    // Determine which bots should respond (don't add to history yet)
     const respondingBots = this.shouldRespond(userMessage);
 
     if (respondingBots.length === 0) {
       console.log('No LLM bots will respond to this message');
+      // Add user message to history even if no bots respond
+      this.addToHistory(userMessage);
       return [];
     }
 
-    // Generate responses from selected bots
+    // Generate responses from selected bots (using current history without the new message)
     const responses = await this.responseGenerator.generateMultipleResponses(
       respondingBots,
       userMessage,
@@ -90,22 +89,14 @@ class BotService {
       this.conversationHistory.getRecentHistory()
     );
 
-    // Add bot responses to history for future context
+    // Now add user message and bot responses to history
+    this.addToHistory(userMessage);
     responses.forEach(response => {
       this.addToHistory(response);
     });
 
     console.log('LLM bot responses generated:', responses.length);
     return responses;
-  }
-
-  // Configuration methods
-  setRandomResponseChance(chance) {
-    this.responseLogic.setRandomResponseChance(chance);
-  }
-
-  clearConversationHistory() {
-    this.conversationHistory.clearHistory();
   }
 }
 
