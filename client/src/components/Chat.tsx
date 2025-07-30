@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import io, { Socket } from 'socket.io-client';
 import { useUser } from '../contexts/userContext';
 import { Message, Participant } from '../types';
+import { useProfileModal } from '../hooks/useProfileModal';
 import UserAvatar from './UserAvatar';
+import UserProfileModal from './UserProfileModal';
 import Button from './ui/Button';
 
 // Legacy message format for socket communication
@@ -27,6 +29,7 @@ const Chat: React.FC = () => {
   const [currentMessage, setCurrentMessage] = useState('');
   const [connected, setConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { isOpen, selectedUser, showProfile, hideProfile } = useProfileModal();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -131,6 +134,10 @@ const Chat: React.FC = () => {
     }
   };
 
+  const handleUserClick = (messageUser: Participant) => {
+    showProfile(messageUser);
+  };
+
   const formatTimestamp = (timestamp: string): string => {
     try {
       // If it's already a time string (like "10:30:45 AM"), return as is
@@ -156,8 +163,12 @@ const Chat: React.FC = () => {
             user={message.author}
             size="small"
             showStatus={false}
+            onClick={() => handleUserClick(message.author)}
           />
-          <span className={`username ${isBot ? 'bot-username' : ''}`}>
+          <span 
+            className={`username ${isBot ? 'bot-username' : ''} clickable-username`}
+            onClick={() => handleUserClick(message.author)}
+          >
             {message.author.username}
             {isBot && <span className="bot-badge">BOT</span>}
           </span>
@@ -169,38 +180,46 @@ const Chat: React.FC = () => {
   };
 
   return (
-    <div className="chat-container">
-      <div className="chat-header">
-        <h3># general</h3>
-        <div className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
-          {connected ? '🟢 Connected' : '🔴 Disconnected'}
+    <>
+      <div className="chat-container">
+        <div className="chat-header">
+          <h3># general</h3>
+          <div className={`connection-status ${connected ? 'connected' : 'disconnected'}`}>
+            {connected ? '🟢 Connected' : '🔴 Disconnected'}
+          </div>
+        </div>
+
+        <div className="messages-container">
+          {messages.map(renderMessage)}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="input-container">
+          <input
+            type="text"
+            placeholder="Message #general"
+            value={currentMessage}
+            onChange={(e) => setCurrentMessage(e.target.value)}
+            onKeyPress={handleKeyPress}
+            className="message-input"
+          />
+          <Button
+            onClick={sendMessage}
+            variant="primary"
+            size="medium"
+            disabled={!currentMessage.trim()}
+          >
+            Send
+          </Button>
         </div>
       </div>
 
-      <div className="messages-container">
-        {messages.map(renderMessage)}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="input-container">
-        <input
-          type="text"
-          placeholder="Message #general"
-          value={currentMessage}
-          onChange={(e) => setCurrentMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          className="message-input"
-        />
-        <Button
-          onClick={sendMessage}
-          variant="primary"
-          size="medium"
-          disabled={!currentMessage.trim()}
-        >
-          Send
-        </Button>
-      </div>
-    </div>
+      <UserProfileModal
+        isOpen={isOpen}
+        onClose={hideProfile}
+        user={selectedUser}
+      />
+    </>
   );
 };
 

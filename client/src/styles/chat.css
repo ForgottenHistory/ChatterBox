@@ -165,3 +165,16 @@
 .bot-message .message-content {
   margin-left: 2.5rem;
 }
+
+.clickable-username {
+  cursor: pointer;
+  transition: color 0.2s;
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  margin: -0.1rem -0.3rem;
+}
+
+.clickable-username:hover {
+  background-color: var(--bg-hover);
+  color: var(--brand-blue);
+}

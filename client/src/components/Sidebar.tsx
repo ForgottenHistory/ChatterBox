@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, ParticipantStatus } from '../types';
+import { useProfileModal } from '../hooks/useProfileModal';
 import UserPanel from './UserPanel';
 import UserAvatar from './UserAvatar';
+import UserProfileModal from './UserProfileModal';
 
 interface Channel {
   id: string;
@@ -13,6 +15,7 @@ interface Channel {
 const Sidebar: React.FC = () => {
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isOpen, selectedUser, showProfile, hideProfile } = useProfileModal();
 
   const channels: Channel[] = [
     { id: '1', name: 'general', type: 'text', active: true },
@@ -58,66 +61,70 @@ const Sidebar: React.FC = () => {
     fetchBots();
   }, []);
 
-  const getStatusColor = (status: ParticipantStatus) => {
-    switch (status) {
-      case 'online': return 'var(--success-green)';
-      case 'away': return 'var(--warning-yellow)';
-      case 'offline': return 'var(--text-muted)';
-    }
-  };
-
-  const capitalizePersonality = (personality: string): string => {
-    return personality.charAt(0).toUpperCase() + personality.slice(1);
+  const handleBotClick = (bot: Bot) => {
+    showProfile(bot);
   };
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-section">
-        <div className="section-header">
-          <span>TEXT CHANNELS</span>
+    <>
+      <div className="sidebar">
+        <div className="sidebar-section">
+          <div className="section-header">
+            <span>TEXT CHANNELS</span>
+          </div>
+          <div className="channels-list">
+            {channels.map(channel => (
+              <div key={channel.id} className={`channel-item ${channel.active ? 'active' : ''}`}>
+                <span className="channel-hash">#</span>
+                <span className="channel-name">{channel.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="channels-list">
-          {channels.map(channel => (
-            <div key={channel.id} className={`channel-item ${channel.active ? 'active' : ''}`}>
-              <span className="channel-hash">#</span>
-              <span className="channel-name">{channel.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      <div className="sidebar-section">
-        <div className="section-header">
-          <span>AI BOTS</span>
-          <span className="bot-count">{loading ? '...' : bots.length}</span>
-        </div>
-        <div className="bots-list">
-          {loading ? (
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0.5rem' }}>
-              Loading bots...
-            </div>
-          ) : (
-            bots.map(bot => (
-              <div key={bot.id} className="bot-item">
-                <UserAvatar
-                  user={bot}
-                  size="medium"
-                  showStatus={true}
-                />
-                <div className="bot-info">
-                  <div className="bot-name">
-                    {bot.username}
-                    <span className="bot-badge">BOT</span>
+        <div className="sidebar-section">
+          <div className="section-header">
+            <span>AI BOTS</span>
+            <span className="bot-count">{loading ? '...' : bots.length}</span>
+          </div>
+          <div className="bots-list">
+            {loading ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0.5rem' }}>
+                Loading bots...
+              </div>
+            ) : (
+              bots.map(bot => (
+                <div 
+                  key={bot.id} 
+                  className="bot-item clickable-bot" 
+                  onClick={() => handleBotClick(bot)}
+                >
+                  <UserAvatar
+                    user={bot}
+                    size="medium"
+                    showStatus={true}
+                  />
+                  <div className="bot-info">
+                    <div className="bot-name">
+                      {bot.username}
+                      <span className="bot-badge">BOT</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
+
+        <UserPanel />
       </div>
 
-      <UserPanel />
-    </div>
+      <UserProfileModal
+        isOpen={isOpen}
+        onClose={hideProfile}
+        user={selectedUser}
+      />
+    </>
   );
 };
 

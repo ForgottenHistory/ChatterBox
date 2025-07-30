@@ -163,7 +163,6 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 2rem;
 }
 
 .modal-title-section {
@@ -202,8 +201,4 @@
 .modal-close-button:hover {
   background-color: var(--bg-hover);
   color: var(--text-primary);
-}
-
-.modal-body {
-  /* Content styling handled by children */
 }
