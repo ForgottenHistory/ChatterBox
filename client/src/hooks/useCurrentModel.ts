@@ -2,12 +2,20 @@ import { useState, useEffect } from 'react';
 
 const API_BASE = 'http://localhost:5000/api';
 
+interface ModelDetails {
+  contextLength: number;
+  maxCompletionTokens: number;
+  modelClass: string;
+  isGated: boolean;
+}
+
 interface ModelStatus {
   configured: boolean;
   currentModel: string;
   defaultModel: string;
   maxTokens: number;
   provider: string;
+  modelDetails?: ModelDetails;
 }
 
 interface UseCurrentModelReturn {

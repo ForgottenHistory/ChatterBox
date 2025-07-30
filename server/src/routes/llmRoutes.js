@@ -12,9 +12,9 @@ router.get('/settings', async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching LLM settings:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to fetch LLM settings' 
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch LLM settings'
     });
   }
 });
@@ -62,9 +62,9 @@ router.put('/settings', async (req, res) => {
 router.post('/settings/reset', async (req, res) => {
   try {
     console.log('Resetting LLM settings to defaults');
-    
+
     const result = await botService.resetLLMSettings();
-    
+
     if (result.success) {
       console.log('LLM settings reset successfully');
       res.json({
@@ -123,12 +123,12 @@ router.get('/status', (req, res) => {
 });
 
 // Get current model
-router.get('/model', (req, res) => {
+router.get('/model', async (req, res) => {
   try {
     const llmService = require('../services/llmService');
     const currentModel = llmService.getCurrentModel();
-    const status = llmService.getStatus();
-    
+    const status = await llmService.getEnhancedStatus();
+
     res.json({
       success: true,
       currentModel,
@@ -147,7 +147,7 @@ router.get('/model', (req, res) => {
 router.post('/model', (req, res) => {
   try {
     const { modelId } = req.body;
-    
+
     if (!modelId) {
       return res.status(400).json({
         success: false,
@@ -157,7 +157,7 @@ router.post('/model', (req, res) => {
 
     const llmService = require('../services/llmService');
     const success = llmService.setModel(modelId);
-    
+
     if (success) {
       res.json({
         success: true,
@@ -184,7 +184,7 @@ router.post('/model/reset', (req, res) => {
   try {
     const llmService = require('../services/llmService');
     const defaultModel = llmService.resetToDefaultModel();
-    
+
     res.json({
       success: true,
       message: 'Model reset to default',

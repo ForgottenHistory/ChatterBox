@@ -1071,3 +1071,9 @@
     flex: 1;
   }
 }
+
+.status-item.gated {
+  background-color: var(--warning-yellow);
+  color: var(--bg-darkest);
+  font-weight: 600;
+}

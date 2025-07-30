@@ -97,7 +97,21 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                     {status && (
                         <div className="model-status">
                             <span className="status-item">Provider: {status.provider}</span>
-                            <span className="status-item">Max Tokens: {status.maxTokens}</span>
+                            {status.modelDetails ? (
+                                <>
+                                    <span className="status-item">
+                                        Context: {modelService.formatContextLength(status.modelDetails.contextLength)}
+                                    </span>
+                                    <span className="status-item">
+                                        Max Tokens: {modelService.formatContextLength(status.modelDetails.maxCompletionTokens)}
+                                    </span>
+                                    {status.modelDetails.isGated && (
+                                        <span className="status-item gated">🔒 Gated Model</span>
+                                    )}
+                                </>
+                            ) : (
+                                <span className="status-item">Max Tokens: {status.maxTokens}</span>
+                            )}
                         </div>
                     )}
                 </div>

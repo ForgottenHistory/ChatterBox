@@ -89,9 +89,9 @@ class LLMService {
       });
 
       console.log(`Using model: ${this.currentModel}`);
-      console.log('Messages sent to LLM:', messages.map(m => ({ 
-        role: m.role, 
-        content: m.content.substring(0, 100) + '...' 
+      console.log('Messages sent to LLM:', messages.map(m => ({
+        role: m.role,
+        content: m.content.substring(0, 100) + '...'
       })));
 
       // Merge global settings with bot-specific overrides
@@ -212,9 +212,9 @@ class LLMService {
     if (params.maxTokens) this.maxTokens = params.maxTokens;
     if (params.model) this.setModel(params.model);
 
-    console.log('LLM parameters updated:', { 
-      model: this.currentModel, 
-      maxTokens: this.maxTokens 
+    console.log('LLM parameters updated:', {
+      model: this.currentModel,
+      maxTokens: this.maxTokens
     });
   }
 
@@ -236,6 +236,37 @@ class LLMService {
       maxTokens: this.maxTokens,
       provider: 'Featherless AI'
     };
+  }
+
+  // Get enhanced status with current model details
+  async getEnhancedStatus() {
+    const basicStatus = this.getStatus();
+
+    try {
+      // Fetch current model details from Featherless API
+      const response = await fetch('https://api.featherless.ai/v1/models');
+      if (response.ok) {
+        const data = await response.json();
+        const currentModelData = data.data.find(model => model.id === this.currentModel);
+
+        if (currentModelData) {
+          return {
+            ...basicStatus,
+            modelDetails: {
+              contextLength: currentModelData.context_length,
+              maxCompletionTokens: currentModelData.max_completion_tokens,
+              modelClass: currentModelData.model_class,
+              isGated: currentModelData.is_gated || false
+            }
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Could not fetch model details:', error);
+    }
+
+    // Return basic status if we can't fetch model details
+    return basicStatus;
   }
 }
 
