@@ -48,9 +48,7 @@ router.post('/', (req, res) => {
     const { 
       name, 
       description,
-      firstMessage,
       exampleMessages,
-      systemPrompt,
       avatar, 
       avatarType
     } = req.body;
@@ -65,13 +63,11 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Bot name is already taken' });
     }
 
-    // Create bot through service with simplified data
+    // Create bot through service with minimal data
     const newBot = botService.createBot({
       name: name.trim(),
       description: description || '',
-      firstMessage: firstMessage || '',
       exampleMessages: exampleMessages || '',
-      systemPrompt: systemPrompt || '',
       avatar: avatar || '#7289DA',
       avatarType: avatarType || 'initials'
     });
