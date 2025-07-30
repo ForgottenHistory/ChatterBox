@@ -9,7 +9,7 @@ interface ApiState<T> {
 }
 
 interface ApiHook<T> extends ApiState<T> {
-  execute: (...args: any[]) => Promise<T | null>;
+  execute: (pathParams?: string, body?: any) => Promise<T | null>;
   reset: () => void;
 }
 
@@ -23,10 +23,13 @@ export function useApi<T = any>(
     error: null
   });
 
-  const execute = useCallback(async (body?: any): Promise<T | null> => {
+  const execute = useCallback(async (pathParams?: string, body?: any): Promise<T | null> => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
+      // Build the full URL - if pathParams provided, append to endpoint
+      const url = pathParams ? `${API_BASE}${endpoint}/${pathParams}` : `${API_BASE}${endpoint}`;
+      
       const config: RequestInit = {
         method,
         headers: { 'Content-Type': 'application/json' }
@@ -36,10 +39,12 @@ export function useApi<T = any>(
         config.body = JSON.stringify(body);
       }
 
-      const response = await fetch(`${API_BASE}${endpoint}`, config);
+      console.log(`${method} ${url}`, body ? { body } : '');
+
+      const response = await fetch(url, config);
       
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: `${method} request failed` }));
         throw new Error(errorData.error || `${method} request failed`);
       }
 
@@ -48,6 +53,7 @@ export function useApi<T = any>(
       return data;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`API Error (${method} ${endpoint}):`, error);
       setState({ data: null, loading: false, error: errorMessage });
       return null;
     }

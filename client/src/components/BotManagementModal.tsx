@@ -50,10 +50,11 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
   const fetchBots = useApi<Bot[]>('/bots', 'GET');
   const createBot = useApi('/bots', 'POST');
   const deleteBot = useApi('/bots', 'DELETE');
+  const [deletingBotId, setDeletingBotId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      fetchBots.execute();
+      fetchBots.execute(); // Refresh after successful creation // No parameters needed for GET
     }
   }, [isOpen]);
 
@@ -79,8 +80,6 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
   });
 
   const updateForm = (updates: Partial<CreateBotForm>) => updateFields(updates);
-
-  const resetFormToInitial = () => resetForm();
 
   const handleImportCharacter = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -128,7 +127,7 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
       return;
     }
 
-    const result = await createBot.execute(form);
+    const result = await createBot.execute(undefined, form); // Pass form as body, no pathParams
     if (result) {
       resetForm();
       setActiveTab('list');
@@ -137,10 +136,12 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
   };
 
   const handleDeleteBot = async (botId: string) => {
-    const result = await deleteBot.execute(null);
+    setDeletingBotId(botId);
+    const result = await deleteBot.execute(botId); // Pass botId as pathParams
     if (result) {
-      fetchBots.execute();
+      fetchBots.execute(); // Refresh the bot list
     }
+    setDeletingBotId(null);
   };
 
   const renderBotList = () => (
@@ -187,9 +188,9 @@ const BotManagementModal: React.FC<BotManagementModalProps> = ({ isOpen, onClose
                   variant="danger"
                   size="small"
                   onClick={() => handleDeleteBot(bot.id)}
-                  disabled={deleteBot.loading}
+                  disabled={deletingBotId === bot.id}
                 >
-                  {deleteBot.loading ? 'Deleting...' : 'Delete'}
+                  {deletingBotId === bot.id ? 'Deleting...' : 'Delete'}
                 </Button>
               </div>
             </div>

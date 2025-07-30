@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Bot } from '../types';
+import { useApi } from './useApi';
 
 export const useBots = () => {
   const [bots, setBots] = useState<Bot[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const fetchBotsApi = useApi<Bot[]>('/bots', 'GET');
 
   const mapBotData = (bot: any): Bot => ({
     type: 'bot' as const,
@@ -22,22 +22,9 @@ export const useBots = () => {
   });
 
   const fetchBots = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('http://localhost:5000/api/bots');
-      
-      if (response.ok) {
-        const botData = await response.json();
-        setBots(botData.map(mapBotData));
-      } else {
-        setError('Failed to fetch bots');
-      }
-    } catch (error) {
-      console.error('Error fetching bots:', error);
-      setError('Failed to load bots');
-    } finally {
-      setLoading(false);
+    const result = await fetchBotsApi.execute();
+    if (result) {
+      setBots(result.map(mapBotData));
     }
   };
 
@@ -45,5 +32,17 @@ export const useBots = () => {
     fetchBots();
   }, []);
 
-  return { bots, loading, error, refetch: fetchBots };
+  // Update bots when API data changes
+  useEffect(() => {
+    if (fetchBotsApi.data) {
+      setBots(fetchBotsApi.data.map(mapBotData));
+    }
+  }, [fetchBotsApi.data]);
+
+  return { 
+    bots, 
+    loading: fetchBotsApi.loading, 
+    error: fetchBotsApi.error, 
+    refetch: fetchBots 
+  };
 };

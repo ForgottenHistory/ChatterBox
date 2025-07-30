@@ -7,7 +7,6 @@ import UserPanel from './UserPanel';
 import UserAvatar from './UserAvatar';
 import UserProfileModal from './UserProfileModal';
 import BotManagementModal from './BotManagementModal';
-import LoadingState from './ui/LoadingState';
 
 interface Channel {
   id: string;
@@ -67,7 +66,7 @@ const Sidebar: React.FC = () => {
       </div>
       <div className="bots-list">
         {loading ? (
-          <LoadingState message="Loading bots..." className="bots-loading" />
+          <div className="bots-loading">Loading bots...</div>
         ) : bots.length === 0 ? (
           <div className="empty-bots-state">
             <p>No bots yet</p>
