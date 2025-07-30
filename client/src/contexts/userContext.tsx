@@ -12,6 +12,7 @@ interface UserContextType {
   setUserStatus: (status: ParticipantStatus) => void;
   updateLastActive: () => void;
   clearUser: () => void;
+  updateUsername: (username: string) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -36,11 +37,11 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeUser = async () => {
       // Simulate loading time
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       try {
         const savedUser = localStorage.getItem('chatterbox-user');
         const savedSetupComplete = localStorage.getItem('chatterbox-setup-complete');
-        
+
         if (savedUser) {
           const userData = JSON.parse(savedUser);
           // Ensure the user has the correct type
@@ -135,12 +136,23 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasUser = user !== null && isSetupComplete;
 
+  const updateUsername = (username: string) => {
+    if (user) {
+      setUser(prev => prev ? {
+        ...prev,
+        username: username.trim(),
+        lastActive: new Date().toISOString()
+      } : null);
+    }
+  };
+
   return (
     <UserContext.Provider value={{
       user,
       isLoading,
       hasUser,
       isSetupComplete,
+      updateUsername,
       createUser,
       completeSetup,
       setUserAvatar,

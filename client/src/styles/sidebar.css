@@ -235,3 +235,34 @@
 .user-avatar {
   position: relative;
 }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.settings-button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
