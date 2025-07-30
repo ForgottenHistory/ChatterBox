@@ -137,3 +137,5 @@ dist
 
 # Server
 server/src/uploads/*
+server/data/llm_settings.json
+server/data/*.json

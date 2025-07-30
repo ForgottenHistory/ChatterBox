@@ -1,3 +1,6 @@
+const fs = require('fs').promises;
+const path = require('path');
+
 class LLMSettingsManager {
     constructor() {
         // Default LLM settings
@@ -15,7 +18,64 @@ class LLMSettingsManager {
         // Current settings (start with defaults)
         this.currentSettings = { ...this.defaultSettings };
 
-        console.log('LLMSettingsManager initialized with default settings');
+        // File path for persistence
+        this.settingsFile = path.join(__dirname, '../../data/llm_settings.json');
+
+        // Ensure data directory exists and load settings
+        this.initialize();
+
+        console.log('LLMSettingsManager initialized with persistent storage');
+    }
+
+    // Initialize the settings manager
+    async initialize() {
+        try {
+            // Ensure data directory exists
+            const dataDir = path.dirname(this.settingsFile);
+            await fs.mkdir(dataDir, { recursive: true });
+
+            // Load existing settings
+            await this.loadSettings();
+        } catch (error) {
+            console.warn('Failed to initialize LLM settings, using defaults:', error.message);
+            // Save defaults to create the file
+            await this.saveSettings();
+        }
+    }
+
+    // Load settings from JSON file
+    async loadSettings() {
+        try {
+            const data = await fs.readFile(this.settingsFile, 'utf8');
+            const savedSettings = JSON.parse(data);
+
+            // Validate and merge with defaults to handle new settings
+            this.currentSettings = { ...this.defaultSettings, ...savedSettings };
+
+            console.log('LLM settings loaded from file:', this.settingsFile);
+            console.log('Current settings:', this.currentSettings);
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                console.log('No existing LLM settings file found, using defaults');
+                // Save defaults to create the file
+                await this.saveSettings();
+            } else {
+                console.error('Error loading LLM settings:', error.message);
+                throw error;
+            }
+        }
+    }
+
+    // Save settings to JSON file
+    async saveSettings() {
+        try {
+            const jsonData = JSON.stringify(this.currentSettings, null, 2);
+            await fs.writeFile(this.settingsFile, jsonData, 'utf8');
+            console.log('LLM settings saved to file:', this.settingsFile);
+        } catch (error) {
+            console.error('Error saving LLM settings:', error.message);
+            throw error;
+        }
     }
 
     // Get current LLM settings
@@ -23,13 +83,19 @@ class LLMSettingsManager {
         return { ...this.currentSettings };
     }
 
-    // Update LLM settings with validation
-    updateSettings(newSettings) {
+    // Update LLM settings with validation and persistence
+    async updateSettings(newSettings) {
         try {
             const validatedSettings = this.validateSettings(newSettings);
+            const oldSettings = { ...this.currentSettings };
+
+            // Update current settings
             this.currentSettings = { ...this.currentSettings, ...validatedSettings };
 
-            console.log('LLM settings updated:', this.currentSettings);
+            // Save to file
+            await this.saveSettings();
+
+            console.log('LLM settings updated and saved:', this.currentSettings);
             return { success: true, settings: this.getSettings() };
         } catch (error) {
             console.error('Failed to update LLM settings:', error.message);
@@ -112,11 +178,17 @@ class LLMSettingsManager {
         return validated;
     }
 
-    // Reset to default settings
-    resetToDefaults() {
-        this.currentSettings = { ...this.defaultSettings };
-        console.log('LLM settings reset to defaults');
-        return { success: true, settings: this.getSettings() };
+    // Reset to default settings with persistence
+    async resetToDefaults() {
+        try {
+            this.currentSettings = { ...this.defaultSettings };
+            await this.saveSettings();
+            console.log('LLM settings reset to defaults and saved');
+            return { success: true, settings: this.getSettings() };
+        } catch (error) {
+            console.error('Failed to reset LLM settings:', error.message);
+            return { success: false, error: error.message };
+        }
     }
 
     // Get default settings
@@ -157,6 +229,17 @@ class LLMSettingsManager {
         }
 
         return formatted;
+    }
+
+    // Get file path for debugging
+    getSettingsFilePath() {
+        return this.settingsFile;
+    }
+
+    // Manual reload from file (useful for debugging)
+    async reloadSettings() {
+        await this.loadSettings();
+        return this.getSettings();
     }
 }
 

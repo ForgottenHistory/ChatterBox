@@ -11,8 +11,31 @@ class BotService {
     this.responseGenerator = new ResponseGenerator();
     this.responseLogic = new ResponseLogic();
     this.llmSettingsManager = new LLMSettingsManager();
+    this.initialized = false;
+
+    // Initialize asynchronously
+    this.initialize();
 
     console.log('BotService initialized with modular components');
+  }
+
+  async initialize() {
+    try {
+      // Wait for LLM settings manager to initialize
+      await this.llmSettingsManager.initialize();
+      this.initialized = true;
+      console.log('BotService fully initialized');
+    } catch (error) {
+      console.error('Failed to initialize BotService:', error);
+      this.initialized = false;
+    }
+  }
+
+  // Ensure service is initialized before performing operations
+  async ensureInitialized() {
+    if (!this.initialized) {
+      await this.initialize();
+    }
   }
 
   // Bot management methods (delegate to BotManager)
@@ -48,13 +71,25 @@ class BotService {
     return this.botManager.isBotNameTaken(name);
   }
 
-  // LLM Settings methods (delegate to LLMSettingsManager)
-  getLLMSettings() {
+  // LLM Settings methods (delegate to LLMSettingsManager with async support)
+  async getLLMSettings() {
+    await this.ensureInitialized();
     return this.llmSettingsManager.getSettings();
   }
 
-  updateLLMSettings(settings) {
-    return this.llmSettingsManager.updateSettings(settings);
+  async updateLLMSettings(settings) {
+    await this.ensureInitialized();
+    return await this.llmSettingsManager.updateSettings(settings);
+  }
+
+  async resetLLMSettings() {
+    await this.ensureInitialized();
+    return await this.llmSettingsManager.resetToDefaults();
+  }
+
+  async getDefaultLLMSettings() {
+    await this.ensureInitialized();
+    return this.llmSettingsManager.getDefaultSettings();
   }
 
   // Conversation methods (delegate to ConversationHistory)
@@ -74,6 +109,7 @@ class BotService {
 
   // Response generation methods (delegate to ResponseGenerator)
   async generateMessage(bot, message, room) {
+    await this.ensureInitialized();
     const conversationHistory = this.conversationHistory.getRecentHistory();
     const llmSettings = this.llmSettingsManager.getSettings();
     return this.responseGenerator.generateMessage(bot, message, room, conversationHistory, llmSettings);
@@ -82,6 +118,9 @@ class BotService {
   // Main message processing method
   async processMessage(userMessage, room) {
     console.log('Processing message for LLM bots in room:', room);
+
+    // Ensure we're initialized
+    await this.ensureInitialized();
 
     // Determine which bots should respond (don't add to history yet)
     const respondingBots = this.shouldRespond(userMessage);
@@ -111,6 +150,16 @@ class BotService {
 
     console.log('LLM bot responses generated:', responses.length);
     return responses;
+  }
+
+  // Get service status for debugging
+  getStatus() {
+    return {
+      initialized: this.initialized,
+      settingsFile: this.llmSettingsManager.getSettingsFilePath(),
+      botCount: this.botManager.bots.length,
+      conversationHistoryLength: this.conversationHistory.getAllHistory().length
+    };
   }
 }
 

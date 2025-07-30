@@ -1,0 +1,2 @@
+# This file ensures the data directory exists
+# The actual JSON files will be ignored by git
