@@ -9,7 +9,7 @@ class BotService {
     this.conversationHistory = new ConversationHistory();
     this.responseGenerator = new ResponseGenerator();
     this.responseLogic = new ResponseLogic();
-    
+
     console.log('BotService initialized with modular components');
   }
 
@@ -70,13 +70,13 @@ class BotService {
   // Main message processing method
   async processMessage(userMessage, room) {
     console.log('Processing message for LLM bots in room:', room);
-    
+
     // Add user message to history first
     this.addToHistory(userMessage);
-    
+
     // Determine which bots should respond
     const respondingBots = this.shouldRespond(userMessage);
-    
+
     if (respondingBots.length === 0) {
       console.log('No LLM bots will respond to this message');
       return [];
@@ -89,7 +89,7 @@ class BotService {
       room,
       this.conversationHistory.getRecentHistory()
     );
-    
+
     // Add bot responses to history for future context
     responses.forEach(response => {
       this.addToHistory(response);
