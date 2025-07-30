@@ -45,14 +45,16 @@ router.get('/:botId', (req, res) => {
 // Create new bot
 router.post('/', (req, res) => {
   try {
-    const { 
-      name, 
+    const {
+      name,
       description,
       exampleMessages,
-      avatar, 
+      systemPrompt,
+      firstMessage,
+      avatar,
       avatarType
     } = req.body;
-    
+
     // Validate required fields
     if (!name) {
       return res.status(400).json({ error: 'Bot name is required' });
