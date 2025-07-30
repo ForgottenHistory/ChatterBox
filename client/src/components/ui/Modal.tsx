@@ -40,7 +40,6 @@ const Modal: React.FC<ModalProps> = ({
           <div className="modal-header">
             <div className="modal-title-section">
               {title && <h2 className="modal-title">{title}</h2>}
-              {subtitle && <p className="modal-subtitle">{subtitle}</p>}
             </div>
             {showCloseButton && onClose && (
               <button 
