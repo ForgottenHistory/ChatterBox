@@ -9,11 +9,36 @@ class LLMService {
       apiKey: process.env.FEATHERLESS_API_KEY,
     });
 
-    this.model = 'moonshotai/Kimi-K2-Instruct';
-    this.maxTokens = 512; // Keep responses short for chat
+    this.defaultModel = 'moonshotai/Kimi-K2-Instruct';
+    this.currentModel = this.defaultModel;
+    this.maxTokens = 512;
     this.promptBuilder = new PromptBuilder();
 
     console.log('LLM Service initialized with Featherless API');
+  }
+
+  // Set the current model
+  setModel(modelId) {
+    if (!modelId || typeof modelId !== 'string') {
+      console.warn('Invalid model ID provided, keeping current model');
+      return false;
+    }
+
+    this.currentModel = modelId;
+    console.log(`LLM model changed to: ${modelId}`);
+    return true;
+  }
+
+  // Get current model
+  getCurrentModel() {
+    return this.currentModel;
+  }
+
+  // Reset to default model
+  resetToDefaultModel() {
+    this.currentModel = this.defaultModel;
+    console.log(`LLM model reset to default: ${this.defaultModel}`);
+    return this.defaultModel;
   }
 
   // Validate prompt locally
@@ -40,7 +65,7 @@ class LLMService {
         globalLlmSettings
       );
 
-      // Validate the prompt (do it locally since validatePrompt might not exist)
+      // Validate the prompt
       const validatedPrompt = this.validatePrompt(systemPrompt);
 
       // Build conversation messages in order
@@ -63,7 +88,11 @@ class LLMService {
         content: `${userMessage.author.username}: ${userMessage.content}`
       });
 
-      console.log('Messages sent to LLM:', messages.map(m => ({ role: m.role, content: m.content.substring(0, 100) + '...' })));
+      console.log(`Using model: ${this.currentModel}`);
+      console.log('Messages sent to LLM:', messages.map(m => ({ 
+        role: m.role, 
+        content: m.content.substring(0, 100) + '...' 
+      })));
 
       // Merge global settings with bot-specific overrides
       const finalSettings = this.mergeSettings(globalLlmSettings, botContext.llmSettings);
@@ -71,7 +100,7 @@ class LLMService {
       console.log('Using LLM settings:', finalSettings);
 
       const completion = await this.client.chat.completions.create({
-        model: this.model,
+        model: this.currentModel,
         max_tokens: this.maxTokens,
         messages: messages,
         ...finalSettings
@@ -181,17 +210,31 @@ class LLMService {
   // Update LLM parameters (legacy method)
   setModelParameters(params) {
     if (params.maxTokens) this.maxTokens = params.maxTokens;
-    if (params.model) this.model = params.model;
+    if (params.model) this.setModel(params.model);
 
-    console.log('LLM parameters updated:', { model: this.model, maxTokens: this.maxTokens });
+    console.log('LLM parameters updated:', { 
+      model: this.currentModel, 
+      maxTokens: this.maxTokens 
+    });
   }
 
   // Get current model parameters (legacy method)
   getModelParameters() {
     return {
-      model: this.model,
+      model: this.currentModel,
       maxTokens: this.maxTokens,
       configured: this.isConfigured()
+    };
+  }
+
+  // Get service status with model info
+  getStatus() {
+    return {
+      configured: this.isConfigured(),
+      currentModel: this.currentModel,
+      defaultModel: this.defaultModel,
+      maxTokens: this.maxTokens,
+      provider: 'Featherless AI'
     };
   }
 }

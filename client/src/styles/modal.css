@@ -991,3 +991,83 @@
   border-top: 1px solid var(--bg-hover);
   margin-top: 1rem;
 }
+
+/* Model Selection Section */
+.model-selection-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: var(--bg-dark);
+  border-radius: 8px;
+  border: 1px solid var(--bg-hover);
+}
+
+.current-model-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.current-model-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.model-name-display {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0.25rem 0;
+}
+
+.model-id-display {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.model-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
+}
+
+.status-item {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background-color: var(--bg-hover);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.model-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .current-model-display {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .model-status {
+    align-items: flex-start;
+  }
+  
+  .model-actions {
+    justify-content: stretch;
+  }
+  
+  .model-actions button {
+    flex: 1;
+  }
+}

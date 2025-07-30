@@ -122,4 +122,81 @@ router.get('/status', (req, res) => {
   }
 });
 
+// Get current model
+router.get('/model', (req, res) => {
+  try {
+    const llmService = require('../services/llmService');
+    const currentModel = llmService.getCurrentModel();
+    const status = llmService.getStatus();
+    
+    res.json({
+      success: true,
+      currentModel,
+      status
+    });
+  } catch (error) {
+    console.error('Error getting current model:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get current model'
+    });
+  }
+});
+
+// Set current model
+router.post('/model', (req, res) => {
+  try {
+    const { modelId } = req.body;
+    
+    if (!modelId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Model ID is required'
+      });
+    }
+
+    const llmService = require('../services/llmService');
+    const success = llmService.setModel(modelId);
+    
+    if (success) {
+      res.json({
+        success: true,
+        message: 'Model updated successfully',
+        currentModel: llmService.getCurrentModel()
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Failed to set model'
+      });
+    }
+  } catch (error) {
+    console.error('Error setting model:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to set model'
+    });
+  }
+});
+
+// Reset to default model
+router.post('/model/reset', (req, res) => {
+  try {
+    const llmService = require('../services/llmService');
+    const defaultModel = llmService.resetToDefaultModel();
+    
+    res.json({
+      success: true,
+      message: 'Model reset to default',
+      currentModel: defaultModel
+    });
+  } catch (error) {
+    console.error('Error resetting model:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reset model'
+    });
+  }
+});
+
 module.exports = router;
