@@ -16,17 +16,32 @@ class LLMService {
     console.log('LLM Service initialized with Featherless API');
   }
 
+  // Validate prompt locally
+  validatePrompt(prompt) {
+    if (!prompt || typeof prompt !== 'string') {
+      throw new Error('Invalid prompt: must be a non-empty string');
+    }
+
+    if (prompt.length > 8000) {
+      console.warn('Prompt is very long, truncating for API limits');
+      return prompt.substring(0, 8000) + '...';
+    }
+
+    return prompt.trim();
+  }
+
   // Generate a response for a bot given the context and settings
   async generateResponse(botContext, userMessage, conversationHistory = [], globalLlmSettings = {}, options = {}) {
     try {
-      // Build the system prompt using PromptBuilder
+      // Build the system prompt using PromptBuilder with global settings
       const systemPrompt = this.promptBuilder.buildSystemPrompt(
         botContext,
-        options.authorNote || null
+        options.authorNote || null,
+        globalLlmSettings
       );
 
-      // Validate the prompt
-      const validatedPrompt = this.promptBuilder.validatePrompt(systemPrompt);
+      // Validate the prompt (do it locally since validatePrompt might not exist)
+      const validatedPrompt = this.validatePrompt(systemPrompt);
 
       // Build conversation messages in order
       const messages = [

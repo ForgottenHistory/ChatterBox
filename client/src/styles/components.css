@@ -385,3 +385,64 @@
 .prompt-content::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
 }
+
+/* Bot Selector Styles */
+.bot-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background-color: var(--bg-dark);
+  border-radius: 6px;
+  border: 1px solid var(--bg-hover);
+}
+
+.bot-selector-label {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.bot-selector-dropdown {
+  background-color: var(--bg-darker);
+  border: 2px solid var(--bg-hover);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.bot-selector-dropdown:focus {
+  outline: none;
+  border-color: var(--brand-blue);
+}
+
+.custom-settings-indicator {
+  color: var(--warning-yellow);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.prompt-error {
+  text-align: center;
+  padding: 2rem;
+  color: var(--error-red);
+}
+
+.prompt-error p {
+  margin-bottom: 1rem;
+}
+
+.prompt-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.prompt-empty p {
+  margin: 0;
+  font-style: italic;
+}

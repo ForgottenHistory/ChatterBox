@@ -14,7 +14,6 @@ import PromptInspectorModal from './PromptInspectorModal';
 const Chat: React.FC = () => {
   const { user, updateLastActive } = useUser();
   const [showPromptInspector, setShowPromptInspector] = useState(false);
-  const [promptData, setPromptData] = useState<any>(null);
   const { isOpen, selectedUser, showProfile, hideProfile } = useProfileModal();
   const { messages, addMessage } = useMessages();
   const { connected, sendMessage } = useSocket(addMessage);
@@ -31,14 +30,6 @@ const Chat: React.FC = () => {
   };
 
   const handleInspectPrompts = () => {
-    // TODO: Fetch actual prompt data from backend
-    // For now, set placeholder data
-    setPromptData({
-      systemPrompt: 'Loading...',
-      conversationHistory: [],
-      currentMessage: '',
-      botName: 'Example Bot'
-    });
     setShowPromptInspector(true);
   };
 
@@ -71,7 +62,7 @@ const Chat: React.FC = () => {
       <PromptInspectorModal
         isOpen={showPromptInspector}
         onClose={() => setShowPromptInspector(false)}
-        promptData={promptData}
+        currentMessage={undefined}
       />
     </>
   );

@@ -1,33 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './ui/Modal';
 import Button from './ui/Button';
-
-interface PromptData {
-  systemPrompt: string;
-  conversationHistory: Array<{
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp?: string;
-  }>;
-  currentMessage?: string;
-  botName?: string;
-}
+import LoadingState from './ui/LoadingState';
+import { usePromptInspector } from '../hooks/usePromptInspector';
 
 interface PromptInspectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  promptData: PromptData | null;
+  currentMessage?: string;
 }
 
 const PromptInspectorModal: React.FC<PromptInspectorModalProps> = ({
   isOpen,
   onClose,
-  promptData
+  currentMessage
 }) => {
   const [activeTab, setActiveTab] = useState<'system' | 'history' | 'full'>('system');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  
+  const {
+    promptData,
+    loading,
+    error,
+    selectedBotId,
+    fetchPromptData,
+    selectBot,
+    clearData
+  } = usePromptInspector();
 
-  if (!promptData) return null;
+  useEffect(() => {
+    if (isOpen) {
+      fetchPromptData(currentMessage);
+    } else {
+      clearData();
+    }
+  }, [isOpen, currentMessage]);
+
+  const selectedBot = promptData?.find(bot => bot.botId === selectedBotId);
 
   const copyToClipboard = async (text: string, section: string) => {
     try {
@@ -40,96 +49,133 @@ const PromptInspectorModal: React.FC<PromptInspectorModalProps> = ({
   };
 
   const formatConversationHistory = () => {
-    return promptData.conversationHistory
+    if (!selectedBot) return '';
+    return selectedBot.conversationHistory
       .map(msg => `${msg.role}: ${msg.content}`)
       .join('\n\n');
   };
 
   const formatFullPrompt = () => {
+    if (!selectedBot) return '';
+    
     const sections = [];
     
     sections.push('=== SYSTEM PROMPT ===');
-    sections.push(promptData.systemPrompt);
+    sections.push(selectedBot.systemPrompt);
     
-    if (promptData.conversationHistory.length > 0) {
+    if (selectedBot.conversationHistory.length > 0) {
       sections.push('\n=== CONVERSATION HISTORY ===');
       sections.push(formatConversationHistory());
     }
     
-    if (promptData.currentMessage) {
+    if (selectedBot.currentMessage) {
       sections.push('\n=== CURRENT MESSAGE ===');
-      sections.push(`user: ${promptData.currentMessage}`);
+      sections.push(`user: ${selectedBot.currentMessage}`);
     }
     
     return sections.join('\n');
   };
 
-  const renderSystemPrompt = () => (
-    <div className="prompt-section">
-      <div className="prompt-section-header">
-        <h4>System Prompt</h4>
-        <div className="prompt-actions">
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={() => copyToClipboard(promptData.systemPrompt, 'system')}
-          >
-            {copiedSection === 'system' ? 'Copied!' : 'Copy'}
-          </Button>
-        </div>
-      </div>
-      <div className="prompt-content">
-        <pre className="prompt-text">{promptData.systemPrompt}</pre>
-      </div>
-      <div className="prompt-stats">
-        <span>Characters: {promptData.systemPrompt.length}</span>
-        <span>Lines: {promptData.systemPrompt.split('\n').length}</span>
-      </div>
-    </div>
-  );
+  const renderBotSelector = () => {
+    if (!promptData || promptData.length <= 1) return null;
 
-  const renderConversationHistory = () => (
-    <div className="prompt-section">
-      <div className="prompt-section-header">
-        <h4>Conversation History ({promptData.conversationHistory.length} messages)</h4>
-        <div className="prompt-actions">
-          <Button
-            size="small"
-            variant="secondary"
-            onClick={() => copyToClipboard(formatConversationHistory(), 'history')}
-          >
-            {copiedSection === 'history' ? 'Copied!' : 'Copy'}
-          </Button>
+    return (
+      <div className="bot-selector">
+        <label className="bot-selector-label">Select Bot:</label>
+        <select
+          value={selectedBotId || ''}
+          onChange={(e) => selectBot(e.target.value)}
+          className="bot-selector-dropdown"
+        >
+          {promptData.map(bot => (
+            <option key={bot.botId} value={bot.botId}>
+              {bot.botName}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  const renderSystemPrompt = () => {
+    if (!selectedBot) return null;
+
+    return (
+      <div className="prompt-section">
+        <div className="prompt-section-header">
+          <h4>System Prompt</h4>
+          <div className="prompt-actions">
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => copyToClipboard(selectedBot.systemPrompt, 'system')}
+            >
+              {copiedSection === 'system' ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+        </div>
+        <div className="prompt-content">
+          <pre className="prompt-text">{selectedBot.systemPrompt}</pre>
+        </div>
+        <div className="prompt-stats">
+          <span>Characters: {selectedBot.systemPrompt.length}</span>
+          <span>Lines: {selectedBot.systemPrompt.split('\n').length}</span>
+          {selectedBot.botContext.hasCustomSettings && (
+            <span className="custom-settings-indicator">🔧 Custom Settings</span>
+          )}
         </div>
       </div>
-      <div className="prompt-content">
-        {promptData.conversationHistory.length === 0 ? (
-          <p className="empty-history">No conversation history</p>
-        ) : (
-          <div className="conversation-messages">
-            {promptData.conversationHistory.map((msg, index) => (
-              <div key={index} className={`conversation-message ${msg.role}`}>
-                <div className="message-role">{msg.role}:</div>
-                <div className="message-content">{msg.content}</div>
-              </div>
-            ))}
+    );
+  };
+
+  const renderConversationHistory = () => {
+    if (!selectedBot) return null;
+
+    return (
+      <div className="prompt-section">
+        <div className="prompt-section-header">
+          <h4>Conversation History ({selectedBot.conversationHistory.length} messages)</h4>
+          <div className="prompt-actions">
+            <Button
+              size="small"
+              variant="secondary"
+              onClick={() => copyToClipboard(formatConversationHistory(), 'history')}
+            >
+              {copiedSection === 'history' ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+        </div>
+        <div className="prompt-content">
+          {selectedBot.conversationHistory.length === 0 ? (
+            <p className="empty-history">No conversation history</p>
+          ) : (
+            <div className="conversation-messages">
+              {selectedBot.conversationHistory.map((msg, index) => (
+                <div key={index} className={`conversation-message ${msg.role}`}>
+                  <div className="message-role">{msg.role}:</div>
+                  <div className="message-content">{msg.content}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {selectedBot.currentMessage && (
+          <div className="current-message">
+            <div className="current-message-header">
+              <strong>Current Message:</strong>
+            </div>
+            <div className="current-message-content">
+              user: {selectedBot.currentMessage}
+            </div>
           </div>
         )}
       </div>
-      {promptData.currentMessage && (
-        <div className="current-message">
-          <div className="current-message-header">
-            <strong>Current Message:</strong>
-          </div>
-          <div className="current-message-content">
-            user: {promptData.currentMessage}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderFullPrompt = () => {
+    if (!selectedBot) return null;
+
     const fullPrompt = formatFullPrompt();
     
     return (
@@ -157,29 +203,34 @@ const PromptInspectorModal: React.FC<PromptInspectorModalProps> = ({
     );
   };
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'system':
-        return renderSystemPrompt();
-      case 'history':
-        return renderConversationHistory();
-      case 'full':
-        return renderFullPrompt();
-      default:
-        return null;
+  const renderContent = () => {
+    if (loading) {
+      return <LoadingState message="Loading prompt data..." />;
     }
-  };
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Prompt Inspector"
-      subtitle={promptData.botName ? `Analyzing prompt for ${promptData.botName}` : 'Analyzing AI prompt'}
-      size="large"
-      showCloseButton={true}
-    >
-      <div className="prompt-inspector">
+    if (error) {
+      return (
+        <div className="prompt-error">
+          <p>Error loading prompt data: {error}</p>
+          <Button onClick={() => fetchPromptData(currentMessage)}>
+            Retry
+          </Button>
+        </div>
+      );
+    }
+
+    if (!promptData || promptData.length === 0) {
+      return (
+        <div className="prompt-empty">
+          <p>No active bots found</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {renderBotSelector()}
+        
         <div className="prompt-tabs">
           <button
             className={`prompt-tab ${activeTab === 'system' ? 'active' : ''}`}
@@ -191,7 +242,7 @@ const PromptInspectorModal: React.FC<PromptInspectorModalProps> = ({
             className={`prompt-tab ${activeTab === 'history' ? 'active' : ''}`}
             onClick={() => setActiveTab('history')}
           >
-            History ({promptData.conversationHistory.length})
+            History ({selectedBot?.conversationHistory.length || 0})
           </button>
           <button
             className={`prompt-tab ${activeTab === 'full' ? 'active' : ''}`}
@@ -202,8 +253,25 @@ const PromptInspectorModal: React.FC<PromptInspectorModalProps> = ({
         </div>
 
         <div className="prompt-tab-content">
-          {renderTabContent()}
+          {activeTab === 'system' && renderSystemPrompt()}
+          {activeTab === 'history' && renderConversationHistory()}
+          {activeTab === 'full' && renderFullPrompt()}
         </div>
+      </>
+    );
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Prompt Inspector"
+      subtitle={selectedBot ? `Analyzing prompt for ${selectedBot.botName}` : 'Analyzing AI prompts'}
+      size="large"
+      showCloseButton={true}
+    >
+      <div className="prompt-inspector">
+        {renderContent()}
       </div>
     </Modal>
   );

@@ -10,6 +10,7 @@ const healthRoutes = require('./routes/healthRoutes');
 const botRoutes = require('./routes/botRoutes');
 const avatarRoutes = require('./routes/avatarRoutes');
 const llmRoutes = require('./routes/llmRoutes');
+const promptRoutes = require('./routes/promptRoutes');
 
 // Import socket handler
 const ChatHandler = require('./handlers/chatHandler');
@@ -34,10 +35,11 @@ const uploadsDir = path.join(__dirname, 'uploads', 'avatars');
 app.use('/uploads/avatars', express.static(uploadsDir));
 
 // Routes
+app.use('/api', avatarRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/bots', botRoutes);
-app.use('/api', avatarRoutes);
 app.use('/api/llm', llmRoutes);
+app.use('/api/prompts', promptRoutes);
 
 // Socket.io handling
 const chatHandler = new ChatHandler(io);

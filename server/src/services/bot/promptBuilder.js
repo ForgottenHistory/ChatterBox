@@ -4,26 +4,31 @@ class PromptBuilder {
   }
 
   // Build system prompt with bot-specific system prompt taking priority
-  buildSystemPrompt(botContext, authorNote = null) {
+  buildSystemPrompt(botContext, authorNote = null, globalLlmSettings = null) {
     const sections = [];
 
-    // Priority order:
-    // 1. Bot's specific system prompt (from LLM settings)
-    // 2. Bot's system prompt field (legacy)
-    // 3. Character description (fallback)
+    // Priority order for system prompt:
+    // 1. Global LLM system prompt (from settings)
+    // 2. Bot's specific system prompt (from LLM settings)
+    // 3. Bot's system prompt field (legacy)
+    // 4. Character description (fallback)
 
     let primaryPrompt = null;
 
-    // Check if bot has LLM settings with system prompt
-    if (botContext.llmSettings && botContext.llmSettings.systemPrompt) {
+    // First priority: Global LLM system prompt
+    if (globalLlmSettings && globalLlmSettings.systemPrompt && globalLlmSettings.systemPrompt.trim()) {
+      primaryPrompt = globalLlmSettings.systemPrompt;
+    }
+    // Second priority: Bot's specific LLM system prompt
+    else if (botContext.llmSettings && botContext.llmSettings.systemPrompt && botContext.llmSettings.systemPrompt.trim()) {
       primaryPrompt = botContext.llmSettings.systemPrompt;
     }
-    // Fall back to bot's systemPrompt field
-    else if (botContext.systemPrompt) {
+    // Third priority: Bot's systemPrompt field (legacy)
+    else if (botContext.systemPrompt && botContext.systemPrompt.trim()) {
       primaryPrompt = botContext.systemPrompt;
     }
-    // Fall back to description
-    else if (botContext.description) {
+    // Fourth priority: Character description (fallback)
+    else if (botContext.description && botContext.description.trim()) {
       primaryPrompt = `You are ${botContext.name}. ${botContext.description}`;
     }
     // Final fallback
@@ -32,6 +37,13 @@ class PromptBuilder {
     }
 
     sections.push(primaryPrompt);
+
+    // Add character context if we're using the global system prompt
+    if (globalLlmSettings && globalLlmSettings.systemPrompt && globalLlmSettings.systemPrompt.trim()) {
+      if (botContext.description && botContext.description.trim()) {
+        sections.push(`Character Context: You are playing the role of ${botContext.name}. ${botContext.description}`);
+      }
+    }
 
     // Add example messages if provided (helps with character consistency)
     if (botContext.exampleMessages && botContext.exampleMessages.trim()) {
@@ -44,20 +56,6 @@ class PromptBuilder {
     }
 
     return sections.join('\n\n');
-  }
-
-  // Validate prompt
-  validatePrompt(prompt) {
-    if (!prompt || typeof prompt !== 'string') {
-      throw new Error('Invalid prompt: must be a non-empty string');
-    }
-
-    if (prompt.length > 8000) {
-      console.warn('Prompt is very long, truncating for API limits');
-      return prompt.substring(0, 8000) + '...';
-    }
-
-    return prompt.trim();
   }
 
   // Get effective system prompt for debugging

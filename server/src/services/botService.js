@@ -151,10 +151,14 @@ class BotService {
     console.log('LLM bot responses generated:', responses.length);
     return responses;
   }
-  
+
   // Build system prompt for a bot (expose this method)
-  buildSystemPrompt(botContext, llmSettings) {
-    return this.responseGenerator.promptBuilder.buildSystemPrompt(botContext, null);
+  buildSystemPrompt(botContext, globalLlmSettings) {
+    // Import PromptBuilder locally since responseGenerator might not have it exposed
+    const PromptBuilder = require('./bot/promptBuilder');
+    const promptBuilder = new PromptBuilder();
+
+    return promptBuilder.buildSystemPrompt(botContext, null, globalLlmSettings);
   }
 
   // Get service status for debugging
