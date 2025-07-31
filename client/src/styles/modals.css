@@ -71,7 +71,6 @@
 
 .modal-body {
     flex: 1;
-    overflow-y: auto;
     /* Only the body should scroll */
     min-height: 0;
     /* Important for flex scrolling */
