@@ -162,8 +162,7 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                     onSettingsChange={updateSettings}
                     disabled={loading}
                 />
-
-                <div className="ai-config-extra-actions">
+                <div className="ai-config-actions">
                     <Button
                         variant="secondary"
                         size="small"
@@ -172,9 +171,6 @@ const AIConfigTab: React.FC<AIConfigTabProps> = ({ onCancel }) => {
                     >
                         Reset All Settings to Defaults
                     </Button>
-                </div>
-
-                <div className="ai-config-actions">
                     <Button
                         variant="secondary"
                         onClick={handleCancel}

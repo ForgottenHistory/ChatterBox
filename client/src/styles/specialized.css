@@ -449,3 +449,22 @@
     align-items: center;
     gap: 0.25rem;
 }
+
+/* Prevent nested scrollbars in modal tabs */
+.modal-tab-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden; /* Prevent this from scrolling */
+}
+
+.modal-tab-content > * {
+    flex-shrink: 0;
+}
+
+/* Allow only specific content areas to scroll */
+.modal-tab-content .scrollable-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
