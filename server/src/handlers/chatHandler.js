@@ -3,6 +3,13 @@ const botService = require('../services/botService');
 class ChatHandler {
   constructor(io) {
     this.io = io;
+    this.conversationManager = null; // Will be set from server.js
+  }
+
+  // Set conversation manager reference
+  setConversationManager(conversationManager) {
+    this.conversationManager = conversationManager;
+    console.log('ConversationManager reference set in ChatHandler');
   }
 
   handleConnection(socket) {
@@ -31,6 +38,11 @@ class ChatHandler {
 
   async handleMessage(socket, data) {
     console.log('Message received:', data);
+
+    // Update conversation manager activity tracker
+    if (this.conversationManager) {
+      this.conversationManager.updateLastActivity();
+    }
 
     // Broadcast user message to all users in the room
     this.io.to(data.room).emit('receive_message', data);
@@ -92,6 +104,11 @@ class ChatHandler {
           // Send the actual response after a brief pause
           setTimeout(() => {
             this.sendBotResponse(response, data.room);
+            
+            // Update activity tracker after bot responses
+            if (this.conversationManager) {
+              this.conversationManager.updateLastActivity();
+            }
           }, 300);
         }, (index + 1) * 1500);
       });

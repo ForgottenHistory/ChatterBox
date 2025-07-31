@@ -47,6 +47,14 @@ io.on('connection', (socket) => {
   chatHandler.handleConnection(socket);
 });
 
+// Initialize conversation manager
+const ConversationManager = require('./managers/conversationManager');
+const conversationManager = new ConversationManager(chatHandler);
+chatHandler.setConversationManager(conversationManager);
+
+// Start automatic conversations (optional - can be controlled via API)
+conversationManager.start(); // Uncomment to start automatically
+
 // Start server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
