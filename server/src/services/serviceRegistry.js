@@ -1,4 +1,4 @@
-const serviceContainer = require('../containers/serviceContainer');
+const serviceContainer = require('./serviceContainer');
 
 // Import all the classes (not instances)
 const BotManager = require('../managers/botManager');
