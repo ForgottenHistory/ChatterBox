@@ -1,8 +1,7 @@
-const botService = require('./botService');
+const eventBus = require('../services/eventBus');
 
 class ConversationManager {
-    constructor(chatHandler) {
-        this.chatHandler = chatHandler;
+    constructor() {
         this.isActive = false;
         this.intervalId = null;
         this.conversationInterval = 60000; // 1 minute default
@@ -11,13 +10,37 @@ class ConversationManager {
         this.lastActivity = Date.now();
         this.inactivityThreshold = 120000; // 2 minutes of no messages
         
-        console.log('ConversationManager initialized (ultra-simple)');
+        // Will be injected
+        this.botManager = null;
+        this.responseGenerator = null;
+        
+        this.setupEventListeners();
+        console.log('ConversationManager initialized (decoupled)');
+    }
+
+    // Inject dependencies
+    setDependencies(botManager, responseGenerator) {
+        this.botManager = botManager;
+        this.responseGenerator = responseGenerator;
+        console.log('ConversationManager dependencies injected');
+    }
+
+    setupEventListeners() {
+        // Listen for activity updates
+        eventBus.onActivityUpdate(() => {
+            this.updateLastActivity();
+        });
     }
 
     // Start automatic conversations
     start(intervalMs = this.conversationInterval) {
         if (this.isActive) {
             console.log('ConversationManager is already active');
+            return;
+        }
+
+        if (!this.botManager || !this.responseGenerator) {
+            console.error('ConversationManager dependencies not injected');
             return;
         }
 
@@ -73,8 +96,8 @@ class ConversationManager {
             const hasRecentActivity = timeSinceLastActivity < this.inactivityThreshold;
 
             // Get online bots
-            const bots = botService.getAllBots();
-            const activeBots = bots.filter(bot => bot.status === 'online');
+            const activeBots = this.botManager.getAllBots()
+                .filter(bot => bot.status === 'online');
 
             if (activeBots.length === 0) {
                 console.log('No active bots available');
@@ -113,9 +136,8 @@ class ConversationManager {
             console.log(`Letting ${bot.username} speak naturally...`);
 
             // Create a minimal message that just asks the bot to respond naturally
-            // The bot's system prompt will handle what it actually says
             const naturalMessage = {
-                content: "", // Empty content - let the system prompt drive the response
+                content: "",
                 author: {
                     id: 'natural-trigger',
                     username: 'Natural',
@@ -125,13 +147,33 @@ class ConversationManager {
                 room: room
             };
 
-            // Generate response using the bot's existing system prompt
-            const response = await botService.generateMessage(bot, naturalMessage, room);
+            // Generate response using the response generator
+            const response = await this.responseGenerator.generateMessage(
+                bot, 
+                naturalMessage, 
+                room
+            );
 
             if (response && response.content && response.content.trim()) {
-                // Send the response with typing indicator
-                this.sendBotResponseWithTyping(response, room);
-                this.updateLastActivity();
+                // Emit events instead of directly calling methods
+                eventBus.emitTypingIndicator({
+                    bot: response.author,
+                    room: room,
+                    isTyping: true
+                });
+
+                setTimeout(() => {
+                    eventBus.emitTypingIndicator({
+                        bot: response.author,
+                        room: room,
+                        isTyping: false
+                    });
+                    
+                    setTimeout(() => {
+                        eventBus.emitBotResponseGenerated(response);
+                        this.updateLastActivity();
+                    }, 300);
+                }, 1500);
                 
                 console.log(`${bot.username} spoke naturally: ${response.content.substring(0, 50)}...`);
             } else {
@@ -141,23 +183,6 @@ class ConversationManager {
         } catch (error) {
             console.error(`Error letting ${bot.username} speak:`, error);
         }
-    }
-
-    // Send bot response with typing indicator
-    sendBotResponseWithTyping(response, room) {
-        if (!this.chatHandler || !response) return;
-
-        // Send typing indicator
-        this.chatHandler.sendTypingIndicator(response.author, room, true);
-
-        // Send response after typing delay
-        setTimeout(() => {
-            this.chatHandler.sendTypingIndicator(response.author, room, false);
-            
-            setTimeout(() => {
-                this.chatHandler.sendBotResponse(response, room);
-            }, 300);
-        }, 1500);
     }
 
     // Update last activity timestamp
@@ -185,7 +210,8 @@ class ConversationManager {
             conversationInterval: this.conversationInterval,
             timeSinceLastActivity: Date.now() - this.lastActivity,
             inactivityThreshold: this.inactivityThreshold,
-            nextConversationIn: this.intervalId ? 'scheduled' : 'not scheduled'
+            nextConversationIn: this.intervalId ? 'scheduled' : 'not scheduled',
+            hasDependencies: !!(this.botManager && this.responseGenerator)
         };
     }
 

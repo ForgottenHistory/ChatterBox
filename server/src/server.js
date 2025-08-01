@@ -5,6 +5,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Import service registry
+const { initializeServices, getService } = require('./services/serviceRegistry');
+
 // Import routes
 const healthRoutes = require('./routes/healthRoutes');
 const botRoutes = require('./routes/botRoutes');
@@ -26,6 +29,10 @@ const io = socketIo(server, {
 
 const PORT = process.env.PORT || 5000;
 
+// Initialize all services with dependency injection
+console.log('Initializing services...');
+initializeServices();
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -41,16 +48,14 @@ app.use('/api/bots', botRoutes);
 app.use('/api/llm', llmRoutes);
 app.use('/api/prompts', promptRoutes);
 
-// Socket.io handling
+// Socket.io handling with decoupled chat handler
 const chatHandler = new ChatHandler(io);
 io.on('connection', (socket) => {
   chatHandler.handleConnection(socket);
 });
 
-// Initialize conversation manager
-const ConversationManager = require('./managers/conversationManager');
-const conversationManager = new ConversationManager(chatHandler);
-chatHandler.setConversationManager(conversationManager);
+// Get conversation manager from service registry
+const conversationManager = getService('conversationManager');
 
 // Start automatic conversations (optional - can be controlled via API)
 conversationManager.start(); // Uncomment to start automatically
@@ -58,4 +63,5 @@ conversationManager.start(); // Uncomment to start automatically
 // Start server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('All services initialized and ready');
 });
