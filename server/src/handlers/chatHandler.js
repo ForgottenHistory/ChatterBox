@@ -76,8 +76,6 @@ class ChatHandler {
   }
 
   sendTypingIndicator(bot, room, isTyping) {
-    console.log(`${isTyping ? 'Starting' : 'Stopping'} typing indicator for ${bot.username}`);
-    
     const typingData = {
       userId: bot.id,
       username: bot.username,
