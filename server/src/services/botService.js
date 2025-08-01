@@ -2,121 +2,114 @@ const { getService } = require('./serviceRegistry');
 
 class BotService {
   constructor() {
-    console.log('BotService initialized as facade');
+    console.log('BotService facade initialized');
   }
 
-  // Delegate to BotManager
+  // Bot management - delegate to BotOrchestrationService
   getBotById(botId) {
-    return getService('botManager').getBotById(botId);
+    return getService('botOrchestrationService').getBotById(botId);
   }
 
   createBot(config) {
-    return getService('botManager').createBot(config);
+    return getService('botOrchestrationService').createBotWithValidation(config);
   }
 
   deleteBot(botId) {
-    return getService('botManager').deleteBot(botId);
+    return getService('botOrchestrationService').deleteBot(botId);
   }
 
   updateBotStatus(botId, status) {
-    return getService('botManager').updateBotStatus(botId, status);
+    return getService('botOrchestrationService').updateBotStatus(botId, status);
   }
 
   getAllBots() {
-    return getService('botManager').getAllBots();
+    return getService('botOrchestrationService').getAllBots();
   }
 
   getBotContext(botId) {
-    return getService('botManager').getBotContext(botId);
+    return getService('botOrchestrationService').getBotContext(botId);
   }
 
   getBotInitials(botName) {
-    return getService('botManager').getBotInitials(botName);
+    return getService('botOrchestrationService').getBotInitials(botName);
   }
 
   isBotNameTaken(name) {
-    return getService('botManager').isBotNameTaken(name);
+    return getService('botOrchestrationService').isBotNameTaken(name);
   }
 
-  // Delegate to LLMSettingsManager
+  // LLM Configuration - delegate to LLMConfigurationService
   async getLLMSettings() {
-    const manager = getService('llmSettingsManager');
-    await manager.initialize(); // Ensure initialized
-    return manager.getSettings();
+    return await getService('llmConfigurationService').getSettings();
   }
 
   async updateLLMSettings(settings) {
-    const manager = getService('llmSettingsManager');
-    await manager.initialize();
-    return await manager.updateSettings(settings);
+    return await getService('llmConfigurationService').updateSettings(settings);
   }
 
   async resetLLMSettings() {
-    const manager = getService('llmSettingsManager');
-    await manager.initialize();
-    return await manager.resetToDefaults();
+    return await getService('llmConfigurationService').resetSettings();
   }
 
   async getDefaultLLMSettings() {
-    const manager = getService('llmSettingsManager');
-    await manager.initialize();
-    return manager.getDefaultSettings();
+    return await getService('llmConfigurationService').getDefaultSettings();
   }
 
-  // Delegate to ConversationHistory
+  // Conversation management - delegate to ConversationService
   addToHistory(message) {
-    getService('conversationHistory').addMessage(message);
+    return getService('conversationService').addMessage(message);
   }
 
   getConversationContext() {
-    return getService('conversationHistory').getRecentHistory();
+    return getService('conversationService').getRecentHistory();
   }
 
-  // Delegate to ResponseLogic
+  // Prompt building - delegate to PromptService
+  buildSystemPrompt(botContext, globalLlmSettings) {
+    return getService('promptService').buildSystemPrompt(botContext, globalLlmSettings);
+  }
+
+  // Legacy compatibility methods
   shouldRespond(message, mentionedBots = []) {
-    const allBots = getService('botManager').bots;
+    const allBots = getService('botOrchestrationService').getAllBots();
     return getService('responseLogic').shouldRespond(message, allBots, mentionedBots);
   }
 
-  // Delegate to ResponseGenerator
   async generateMessage(bot, message, room) {
-    const conversationHistory = getService('conversationHistory').getRecentHistory();
+    const conversationHistory = getService('conversationService').getRecentHistory();
     const llmSettings = await this.getLLMSettings();
     return getService('responseGenerator').generateMessage(bot, message, room, conversationHistory, llmSettings);
   }
 
-  // Build system prompt (delegate to response generator)
-  buildSystemPrompt(botContext, globalLlmSettings) {
-    const PromptBuilder = require('./bot/promptBuilder');
-    const promptBuilder = new PromptBuilder();
-    return promptBuilder.buildSystemPrompt(botContext, null, globalLlmSettings);
-  }
-
-  // Get service status for debugging
+  // Get comprehensive service status
   getStatus() {
-    const botManager = getService('botManager');
-    const conversationHistory = getService('conversationHistory');
-    const llmSettingsManager = getService('llmSettingsManager');
+    const botOrchestration = getService('botOrchestrationService').getStatus();
+    const llmConfiguration = getService('llmConfigurationService').getStatus();
+    const conversation = getService('conversationService').getStatus();
+    const prompt = getService('promptService').getStatus();
 
     return {
+      serviceName: 'BotService (Facade)',
+      architecture: 'microservices',
+      services: {
+        botOrchestration,
+        llmConfiguration,
+        conversation,
+        prompt
+      },
+      // Legacy compatibility fields
       initialized: true,
-      settingsFile: llmSettingsManager.getSettingsFilePath(),
-      botCount: botManager.bots.length,
-      conversationHistoryLength: conversationHistory.getAllHistory().length,
-      architecture: 'decoupled'
+      botCount: botOrchestration.botCount || 0,
+      conversationHistoryLength: conversation.totalMessages || 0
     };
   }
 
-  // Legacy method - now just emits event
+  // Deprecated - use MessageProcessor via events instead
   async processMessage(userMessage, room) {
-    console.log('BotService.processMessage called - this should use MessageProcessor now');
-    
-    // For backward compatibility, we'll still process but recommend using events
+    console.warn('BotService.processMessage is deprecated - use event system instead');
     const eventBus = require('./eventBus');
     eventBus.emitMessageReceived(userMessage);
-    
-    // Return empty array since responses are now handled via events
-    return [];
+    return []; // Return empty array for backward compatibility
   }
 }
 

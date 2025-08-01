@@ -1,3 +1,4 @@
+// services/serviceRegistry.js
 const serviceContainer = require('./serviceContainer');
 
 // Import all the classes (not instances)
@@ -8,6 +9,12 @@ const ResponseLogic = require('./bot/responseLogic');
 const LLMSettingsManager = require('../managers/llmSettingsManager');
 const ConversationManager = require('../managers/conversationManager');
 const MessageProcessor = require('./messageProcessor');
+
+// Import new services
+const BotOrchestrationService = require('./bot/botOrchestrationService');
+const LLMConfigurationService = require('./bot/llmConfigurationService');
+const ConversationService = require('./bot/conversationService');
+const PromptService = require('./bot/promptService');
 
 function registerServices() {
     console.log('Registering services...');
@@ -29,15 +36,45 @@ function registerServices() {
         singleton: true 
     });
 
-    // Register response generator with dependencies
     serviceContainer.register('responseGenerator', () => new ResponseGenerator(), { 
+        singleton: true 
+    });
+
+    // Register new focused services
+    serviceContainer.register('botOrchestrationService', 
+        (botManager, llmSettingsManager) => new BotOrchestrationService(botManager, llmSettingsManager), 
+        { 
+            singleton: true,
+            dependencies: ['botManager', 'llmSettingsManager']
+        }
+    );
+
+    serviceContainer.register('llmConfigurationService', 
+        (llmSettingsManager) => {
+            const llmService = require('./llmService');
+            return new LLMConfigurationService(llmSettingsManager, llmService);
+        },
+        { 
+            singleton: true,
+            dependencies: ['llmSettingsManager']
+        }
+    );
+
+    serviceContainer.register('conversationService', 
+        (conversationHistory) => new ConversationService(conversationHistory), 
+        { 
+            singleton: true,
+            dependencies: ['conversationHistory']
+        }
+    );
+
+    serviceContainer.register('promptService', () => new PromptService(), { 
         singleton: true 
     });
 
     // Register conversation manager
     serviceContainer.register('conversationManager', () => {
         const manager = new ConversationManager();
-        // Dependencies will be injected after all services are registered
         return manager;
     }, { 
         singleton: true 
