@@ -143,39 +143,19 @@ router.post('/validate', async (req, res) => {
     }
 });
 
-// Get prompt service status and cache info
+// Get prompt service status
 router.get('/status', async (req, res) => {
     try {
         const promptService = getService('promptService');
         const status = promptService.getStatus();
-        const cacheStats = promptService.getCacheStats();
 
         res.json({ 
             success: true, 
-            status: {
-                ...status,
-                detailedCacheStats: cacheStats
-            }
+            status
         });
     } catch (error) {
         console.error('Error getting prompt service status:', error);
         res.status(500).json({ error: 'Failed to get prompt service status' });
-    }
-});
-
-// Clear prompt cache
-router.post('/cache/clear', async (req, res) => {
-    try {
-        const promptService = getService('promptService');
-        const clearedCount = promptService.clearCache();
-
-        res.json({ 
-            success: true, 
-            message: `Cleared ${clearedCount} cached prompts`
-        });
-    } catch (error) {
-        console.error('Error clearing prompt cache:', error);
-        res.status(500).json({ error: 'Failed to clear prompt cache' });
     }
 });
 

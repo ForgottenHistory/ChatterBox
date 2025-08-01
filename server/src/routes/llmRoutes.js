@@ -277,6 +277,33 @@ router.post('/test', async (req, res) => {
   }
 });
 
+// Test API connection directly
+router.post('/test-connection', async (req, res) => {
+  try {
+    const llmService = require('../services/llmService');
+    const queueManager = llmService.queueManager;
+    
+    if (queueManager.testConnection) {
+      const connectionTest = await queueManager.testConnection();
+      res.json({
+        success: connectionTest,
+        message: connectionTest ? 'API connection successful' : 'API connection failed'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Test connection method not available'
+      });
+    }
+  } catch (error) {
+    console.error('Error testing API connection:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to test API connection'
+    });
+  }
+});
+
 // Get comprehensive LLM status
 router.get('/status', async (req, res) => {
   try {

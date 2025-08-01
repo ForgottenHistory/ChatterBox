@@ -50,11 +50,9 @@ router.post('/', async (req, res) => {
       name,
       description,
       exampleMessages,
-      systemPrompt,
       firstMessage,
       avatar,
-      avatarType,
-      llmSettings
+      avatarType
     } = req.body;
 
     // Validate required fields
@@ -62,16 +60,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Bot name is required' });
     }
 
-    // Prepare bot configuration
+    // Prepare bot configuration (simplified)
     const botConfig = {
       name: name.trim(),
       description: description || '',
       exampleMessages: exampleMessages || '',
-      systemPrompt: systemPrompt || '',
       firstMessage: firstMessage || '',
       avatar: avatar || '#7289DA',
-      avatarType: avatarType || 'initials',
-      llmSettings: llmSettings || null
+      avatarType: avatarType || 'initials'
     };
 
     // Create bot through service (now with validation)

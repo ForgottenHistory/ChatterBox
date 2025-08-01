@@ -1,3 +1,4 @@
+// services/messageProcessor.js
 const eventBus = require('./eventBus');
 
 class MessageProcessor {
@@ -46,12 +47,24 @@ class MessageProcessor {
         }, index * 200);
       });
 
-      // Generate responses from selected bots
+      // Get LLM settings - THIS WAS MISSING!
+      const { getService } = require('./serviceRegistry');
+      const llmConfiguration = getService('llmConfigurationService');
+      const globalLlmSettings = await llmConfiguration.getSettings();
+
+      console.log(`🔍 MessageProcessor got globalLlmSettings:`, {
+        hasSettings: !!globalLlmSettings,
+        hasSystemPrompt: !!(globalLlmSettings && globalLlmSettings.systemPrompt),
+        systemPromptLength: globalLlmSettings?.systemPrompt?.length || 0
+      });
+
+      // Generate responses from selected bots WITH LLM SETTINGS
       const responses = await this.responseGenerator.generateMultipleResponses(
         respondingBots,
         userMessage,
         userMessage.room,
-        this.conversationHistory.getRecentHistory()
+        this.conversationHistory.getRecentHistory(),
+        globalLlmSettings // NOW PASSING THE SETTINGS!
       );
 
       // Add user message and bot responses to history
