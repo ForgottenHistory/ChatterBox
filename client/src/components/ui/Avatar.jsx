@@ -26,9 +26,6 @@ function Avatar({
       <div className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center text-white font-semibold`}>
         {initial}
       </div>
-      {status && (
-        <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 ${statusColors[status]} rounded-full border-2 border-[#36393F]`} />
-      )}
     </div>
   )
 }
