@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sendMessage } from '../../services/socket'
 
 function MessageInput() {
   const [message, setMessage] = useState('')
@@ -6,7 +7,10 @@ function MessageInput() {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (message.trim()) {
-      console.log('Send message:', message)
+      sendMessage({
+        author: 'You',
+        content: message.trim()
+      })
       setMessage('')
     }
   }

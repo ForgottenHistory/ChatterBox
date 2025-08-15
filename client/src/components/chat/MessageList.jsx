@@ -1,6 +1,9 @@
+import { useState, useEffect } from 'react'
+import { onNewMessage } from '../../services/socket'
+
 function MessageList() {
-  // Sample messages for now
-  const messages = [
+  // Start with sample messages
+  const [messages, setMessages] = useState([
     {
       id: 1,
       author: 'ChatBot Alpha',
@@ -14,15 +17,16 @@ function MessageList() {
       content: 'Absolutely! What should we talk about today?',
       timestamp: '12:35 PM',
       isBot: true
-    },
-    {
-      id: 3,
-      author: 'You',
-      content: 'This is looking great!',
-      timestamp: '12:36 PM',
-      isBot: false
     }
-  ]
+  ])
+
+  useEffect(() => {
+    const cleanup = onNewMessage((newMessage) => {
+      setMessages(prev => [...prev, newMessage])
+    })
+
+    return cleanup
+  }, [])
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
