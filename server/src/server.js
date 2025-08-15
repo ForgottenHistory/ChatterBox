@@ -2,10 +2,16 @@ import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import cors from 'cors'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import { createMessage, getMessagesByChannel } from './services/messageService.js'
 import { getUserByUsername } from './services/userService.js'
 import prisma from './db/client.js'
 import usersRouter from './routes/users.js'
+import uploadRouter from './routes/upload.js'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 const server = createServer(app)
@@ -20,8 +26,12 @@ const io = new Server(server, {
 app.use(cors())
 app.use(express.json())
 
+// Serve static files (avatars)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+
 // Routes
 app.use('/api', usersRouter)
+app.use('/api/upload', uploadRouter)
 
 // Basic route
 app.get('/', (req, res) => {
@@ -98,6 +108,7 @@ io.on('connection', async (socket) => {
       const messageToSend = {
         id: savedMessage.id,
         author: savedMessage.user.username,
+        avatar: savedMessage.user.avatar,
         content: savedMessage.content,
         timestamp: savedMessage.createdAt.toLocaleTimeString(),
         isBot: savedMessage.user.isBot

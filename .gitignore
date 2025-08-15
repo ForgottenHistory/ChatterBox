@@ -140,3 +140,4 @@ server/src/uploads/*
 server/data/llm_settings.json
 server/data/*.json
 server/prisma/dev.db
+server/uploads/*
