@@ -12,6 +12,7 @@ function MessageList() {
       const formattedMessages = loadedMessages.map(msg => ({
         id: msg.id,
         author: msg.user.username,
+        avatar: msg.user.avatar,
         content: msg.content,
         timestamp: new Date(msg.createdAt).toLocaleTimeString(),
         isBot: msg.user.isBot
@@ -37,8 +38,8 @@ function MessageList() {
           {/* Avatar */}
           <Avatar 
             name={message.author}
+            avatar={message.avatar}
             isBot={message.isBot}
-            status={message.isBot ? 'online' : null}
           />
           
           {/* Message Content */}
