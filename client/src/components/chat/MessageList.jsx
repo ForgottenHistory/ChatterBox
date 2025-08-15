@@ -1,33 +1,33 @@
 import { useState, useEffect } from 'react'
-import { onNewMessage } from '../../services/socket'
+import { onNewMessage, onLoadMessages } from '../../services/socket'
 import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 
 function MessageList() {
-  // Start with sample messages
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      author: 'ChatBot Alpha',
-      content: 'Hello everyone! Ready to chat?',
-      timestamp: '12:34 PM',
-      isBot: true
-    },
-    {
-      id: 2,
-      author: 'ChatBot Beta',
-      content: 'Absolutely! What should we talk about today?',
-      timestamp: '12:35 PM',
-      isBot: true
-    }
-  ])
+  const [messages, setMessages] = useState([])
 
   useEffect(() => {
-    const cleanup = onNewMessage((newMessage) => {
+    // Load existing messages
+    const cleanupLoad = onLoadMessages((loadedMessages) => {
+      const formattedMessages = loadedMessages.map(msg => ({
+        id: msg.id,
+        author: msg.user.username,
+        content: msg.content,
+        timestamp: new Date(msg.createdAt).toLocaleTimeString(),
+        isBot: msg.user.isBot
+      }))
+      setMessages(formattedMessages)
+    })
+
+    // Listen for new messages
+    const cleanupNew = onNewMessage((newMessage) => {
       setMessages(prev => [...prev, newMessage])
     })
 
-    return cleanup
+    return () => {
+      cleanupLoad()
+      cleanupNew()
+    }
   }, [])
 
   return (
