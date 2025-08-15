@@ -5,6 +5,7 @@ import cors from 'cors'
 import { createMessage, getMessagesByChannel } from './services/messageService.js'
 import { getUserByUsername } from './services/userService.js'
 import prisma from './db/client.js'
+import usersRouter from './routes/users.js'
 
 const app = express()
 const server = createServer(app)
@@ -18,6 +19,9 @@ const io = new Server(server, {
 // Middleware
 app.use(cors())
 app.use(express.json())
+
+// Routes
+app.use('/api', usersRouter)
 
 // Basic route
 app.get('/', (req, res) => {
