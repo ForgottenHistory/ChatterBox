@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String?  @unique
+  password  String?  // Optional for OAuth users
+  avatar    String?  // URL to avatar image
+  isBot     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Bot-specific fields
+  systemPrompt     String? // For bots
+  personality      String? // Bot personality description
+  isActive         Boolean @default(true) // For bots
+  triggerInterval  Int?    // Minutes between auto-messages
+  lastMessageAt    DateTime?
+
+  // Relationships
+  messages     Message[]
+  channels     ChannelMember[]
+  
+  @@map("users")
+}
+
+model Channel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  messages Message[]
+  members  ChannelMember[]
+  
+  @@map("channels")
+}
+
+model ChannelMember {
+  id        String @id @default(cuid())
+  userId    String
+  channelId String
+  role      String @default("member") // member, admin, owner
+  joinedAt  DateTime @default(now())
+
+  // Relationships
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
+  @@map("channel_members")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  channelId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  
+  @@map("system_settings")
+}
