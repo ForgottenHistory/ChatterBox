@@ -142,3 +142,4 @@ server/data/*.json
 server/prisma/dev.db
 server/uploads/*
 PROJECT_STRUCTURE.md
+server/prisma/dev.db-journal
