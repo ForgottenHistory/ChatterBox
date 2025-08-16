@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import Button from '../ui/Button'
-import FormField from '../ui/FormField'
 import ErrorMessage from '../ui/ErrorMessage'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import ModelSelector from './ModelSelector'
+import SamplingParameters from './SamplingParameters'
+import PenaltyParameters from './PenaltyParameters'
 
 function LLMSettings({ onClose }) {
   const scrollRef = useRef(null)
   const [settings, setSettings] = useState({
+    provider: 'featherless',
+    model: null,
     system_prompt: 'You are a helpful AI assistant.',
     temperature: 0.7,
     top_p: 1.0,
@@ -29,7 +33,7 @@ function LLMSettings({ onClose }) {
       const response = await fetch('http://localhost:5000/api/settings/llm')
       if (response.ok) {
         const data = await response.json()
-        setSettings(data)
+        setSettings(prev => ({ ...prev, ...data }))
       }
     } catch (err) {
       console.error('Failed to load settings:', err)
@@ -38,10 +42,14 @@ function LLMSettings({ onClose }) {
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target
-    setSettings({
-      ...settings,
-      [name]: type === 'number' ? parseFloat(value) : value
-    })
+    setSettings(prev => ({
+      ...prev,
+      [name]: type === 'number' ? (value === '' ? 0 : parseFloat(value)) : value
+    }))
+  }
+
+  const handleModelSelect = (model) => {
+    setSettings(prev => ({ ...prev, model }))
   }
 
   const scrollToTop = () => {
@@ -57,31 +65,49 @@ function LLMSettings({ onClose }) {
     setSaveSuccess(false)
 
     try {
+      // Ensure all numeric values are properly formatted
+      const settingsToSave = {
+        ...settings,
+        temperature: Number(settings.temperature) || 0.7,
+        top_p: Number(settings.top_p) || 1.0,
+        top_k: Number(settings.top_k) || -1,
+        frequency_penalty: Number(settings.frequency_penalty) || 0.0,
+        presence_penalty: Number(settings.presence_penalty) || 0.0,
+        repetition_penalty: Number(settings.repetition_penalty) || 1.0,
+        min_p: Number(settings.min_p) || 0.0
+      }
+
+      console.log('Saving settings:', settingsToSave)
+
       const response = await fetch('http://localhost:5000/api/settings/llm', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(settingsToSave)
       })
 
       if (response.ok) {
         setSaveSuccess(true)
-        scrollToTop() // Scroll to top to show success message
+        scrollToTop()
         setTimeout(() => setSaveSuccess(false), 3000)
       } else {
         const errorData = await response.json()
         setError(errorData.error || 'Failed to save settings')
+        console.error('Save error:', errorData)
       }
     } catch (err) {
       setError('Network error. Please try again.')
+      console.error('Network error:', err)
     } finally {
       setLoading(false)
     }
   }
 
   const resetToDefaults = () => {
-    setSettings({
+    setSettings(prev => ({
+      ...prev,
+      model: null,
       system_prompt: 'You are a helpful AI assistant.',
       temperature: 0.7,
       top_p: 1.0,
@@ -90,13 +116,13 @@ function LLMSettings({ onClose }) {
       presence_penalty: 0.0,
       repetition_penalty: 1.0,
       min_p: 0.0
-    })
-    scrollToTop() // Scroll to top after reset
+    }))
+    scrollToTop()
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div ref={scrollRef} className="bg-[#2F3136] rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div ref={scrollRef} className="bg-[#2F3136] rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-[#FFFFFF] text-xl font-bold">LLM Settings</h2>
           <Button variant="ghost" size="sm" onClick={onClose}>✕</Button>
@@ -116,7 +142,31 @@ function LLMSettings({ onClose }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Provider Selection */}
+          <div>
+            <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
+              Provider
+            </label>
+            <select
+              name="provider"
+              value={settings.provider}
+              onChange={handleInputChange}
+              className="w-full bg-[#40444B] text-[#FFFFFF] px-4 py-3 rounded-lg border-none outline-none focus:ring-2 focus:ring-[#5865F2]"
+            >
+              <option value="featherless">Featherless</option>
+              <option value="openai" disabled>OpenAI (Coming Soon)</option>
+              <option value="anthropic" disabled>Anthropic (Coming Soon)</option>
+              <option value="local" disabled>Local (Coming Soon)</option>
+            </select>
+          </div>
+
+          {/* Model Selection */}
+          <ModelSelector
+            selectedModel={settings.model}
+            onModelSelect={handleModelSelect}
+          />
+
           {/* System Prompt */}
           <div>
             <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
@@ -132,138 +182,17 @@ function LLMSettings({ onClose }) {
           </div>
 
           {/* Sampling Parameters */}
-          <div className="border-t border-[#40444B] pt-4">
-            <h3 className="text-[#FFFFFF] font-medium mb-3">Sampling Parameters</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <FormField
-                  label="Temperature"
-                  name="temperature"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="2"
-                  value={settings.temperature}
-                  onChange={handleInputChange}
-                  placeholder="0.7"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Controls randomness. Lower = more deterministic, higher = more random
-                </p>
-              </div>
-
-              <div>
-                <FormField
-                  label="Top P"
-                  name="top_p"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max="1"
-                  value={settings.top_p}
-                  onChange={handleInputChange}
-                  placeholder="1.0"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Cumulative probability of top tokens. Must be in (0, 1]
-                </p>
-              </div>
-
-              <div>
-                <FormField
-                  label="Top K"
-                  name="top_k"
-                  type="number"
-                  min="-1"
-                  value={settings.top_k}
-                  onChange={handleInputChange}
-                  placeholder="-1"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Limits top tokens to consider. Set to -1 for all tokens
-                </p>
-              </div>
-
-              <div>
-                <FormField
-                  label="Min P"
-                  name="min_p"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="1"
-                  value={settings.min_p}
-                  onChange={handleInputChange}
-                  placeholder="0.0"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Minimum probability relative to most likely token
-                </p>
-              </div>
-            </div>
-          </div>
+          <SamplingParameters settings={settings} onChange={handleInputChange} />
 
           {/* Penalty Parameters */}
-          <div className="border-t border-[#40444B] pt-4">
-            <h3 className="text-[#FFFFFF] font-medium mb-3">Penalty Parameters</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <FormField
-                  label="Frequency Penalty"
-                  name="frequency_penalty"
-                  type="number"
-                  step="0.01"
-                  min="-2"
-                  max="2"
-                  value={settings.frequency_penalty}
-                  onChange={handleInputChange}
-                  placeholder="0.0"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Penalizes based on frequency. Positive = new tokens, negative = repetition
-                </p>
-              </div>
-
-              <div>
-                <FormField
-                  label="Presence Penalty"
-                  name="presence_penalty"
-                  type="number"
-                  step="0.01"
-                  min="-2"
-                  max="2"
-                  value={settings.presence_penalty}
-                  onChange={handleInputChange}
-                  placeholder="0.0"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Penalizes based on presence. Positive = new tokens, negative = repetition
-                </p>
-              </div>
-
-              <div className="md:col-span-2">
-                <FormField
-                  label="Repetition Penalty"
-                  name="repetition_penalty"
-                  type="number"
-                  step="0.01"
-                  min="0.1"
-                  max="2"
-                  value={settings.repetition_penalty}
-                  onChange={handleInputChange}
-                  placeholder="1.0"
-                />
-                <p className="text-[#72767D] text-xs mt-1">
-                  Penalizes repetition. Values &gt; 1 = new tokens, &lt; 1 = repetition
-                </p>
-              </div>
-            </div>
-          </div>
+          <PenaltyParameters settings={settings} onChange={handleInputChange} />
 
           <div className="flex gap-3 pt-4">
-            <Button type="submit" disabled={loading} className="flex-1">
+            <Button 
+              type="submit" 
+              disabled={loading || !settings.model} 
+              className="flex-1"
+            >
               {loading ? 'Saving...' : 'Save Settings'}
             </Button>
             <Button type="button" variant="secondary" onClick={resetToDefaults}>
