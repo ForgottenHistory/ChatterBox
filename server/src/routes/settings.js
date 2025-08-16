@@ -1,7 +1,33 @@
 import express from 'express'
 import { getLLMSettings, updateLLMSettings, getFormattedLLMSettings } from '../services/llmSettingsService.js'
+import { modelService } from '../services/modelService.js'
 
 const router = express.Router()
+
+// Get available models
+router.get('/models', async (req, res) => {
+  try {
+    const { provider = 'featherless', page = 1, limit = 10, search = '' } = req.query
+    
+    console.log(`📡 Fetching models: provider=${provider}, page=${page}, limit=${limit}, search="${search}"`)
+    
+    const result = await modelService.getModels(
+      provider, 
+      parseInt(page), 
+      parseInt(limit),
+      search
+    )
+    
+    console.log(`✅ Found ${result.models.length} models (${result.total} total)${search ? ` matching "${search}"` : ''}`)
+    res.json(result)
+  } catch (error) {
+    console.error('❌ Error fetching models:', error)
+    res.status(500).json({ 
+      error: 'Failed to fetch models', 
+      details: error.message 
+    })
+  }
+})
 
 // Get LLM settings
 router.get('/llm', async (req, res) => {
@@ -18,6 +44,8 @@ router.get('/llm', async (req, res) => {
 router.post('/llm', async (req, res) => {
   try {
     const {
+      provider,
+      model,
       system_prompt,
       temperature,
       top_p,
@@ -49,6 +77,8 @@ router.post('/llm', async (req, res) => {
     }
 
     const updatedSettings = await updateLLMSettings({
+      provider,
+      model,
       system_prompt,
       temperature,
       top_p,
