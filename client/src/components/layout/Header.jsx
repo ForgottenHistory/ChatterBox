@@ -1,29 +1,54 @@
+import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import UserInfo from '../ui/UserInfo'
 import Button from '../ui/Button'
+import BotCreationForm from '../bots/BotCreationForm'
 
 function Header() {
   const { user, logout } = useAuth()
+  const [showBotForm, setShowBotForm] = useState(false)
+
+  const handleBotCreated = (botData) => {
+    console.log('Bot created:', botData)
+    // Could show a success message or refresh bot list
+  }
 
   return (
-    <header className="bg-[#202225] border-b border-[#40444B] px-4 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <h1 className="text-[#FFFFFF] text-xl font-semibold">ChatterBox</h1>
-      </div>
-      
-      <div className="flex items-center gap-3">
-        <UserInfo user={user} showWelcome />
+    <>
+      <header className="bg-[#202225] border-b border-[#40444B] px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-[#FFFFFF] text-xl font-semibold">ChatterBox</h1>
+        </div>
         
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={logout}
-          className="hover:bg-[#ED4245] hover:text-white"
-        >
-          Logout
-        </Button>
-      </div>
-    </header>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="success" 
+            size="sm" 
+            onClick={() => setShowBotForm(true)}
+          >
+            + Create Bot
+          </Button>
+          
+          <UserInfo user={user} showWelcome />
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={logout}
+            className="hover:bg-[#ED4245] hover:text-white"
+          >
+            Logout
+          </Button>
+        </div>
+      </header>
+
+      {showBotForm && (
+        <BotCreationForm 
+          onClose={() => setShowBotForm(false)}
+          onBotCreated={handleBotCreated}
+        />
+      )}
+    </>
   )
 }
 

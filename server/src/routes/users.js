@@ -49,7 +49,11 @@ router.post('/bots', async (req, res) => {
       bio,
       systemPrompt, 
       personality, 
-      triggerInterval 
+      triggerInterval,
+      creator_notes,
+      tags,
+      creator,
+      character_version
     } = req.body
     
     if (!username) {
