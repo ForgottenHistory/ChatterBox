@@ -85,6 +85,22 @@ model Message {
   @@map("messages")
 }
 
+model LLMSetting {
+  id                 String  @id @default(cuid())
+  system_prompt      String  @default("You are a helpful AI assistant.")
+  temperature        Float   @default(0.7)
+  top_p              Float   @default(1.0)
+  top_k              Int     @default(-1)
+  frequency_penalty  Float   @default(0.0)
+  presence_penalty   Float   @default(0.0)
+  repetition_penalty Float   @default(1.0)
+  min_p              Float   @default(0.0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("llm_settings")
+}
+
 model SystemSetting {
   id    String @id @default(cuid())
   key   String @unique
