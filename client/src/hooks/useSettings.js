@@ -87,6 +87,10 @@ Conversation History:
       if (response.ok) {
         setSaveSuccess(true)
         setTimeout(() => setSaveSuccess(false), 3000)
+        
+        // Trigger notification system to recheck API configuration
+        window.dispatchEvent(new CustomEvent('settingsUpdated'))
+        
         return true
       } else {
         const errorData = await response.json()

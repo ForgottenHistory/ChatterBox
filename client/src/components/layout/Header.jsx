@@ -4,17 +4,24 @@ import { useBot } from '../../contexts/BotContext'
 import UserInfo from '../ui/UserInfo'
 import Button from '../ui/Button'
 import BotCreationForm from '../bots/BotCreationForm'
-import SettingsModal from '../settings/SettingsModal'
 
-function Header() {
+function Header({ onOpenSettings }) {
   const { user, logout } = useAuth()
   const { refreshBots } = useBot()
   const [showBotForm, setShowBotForm] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
 
   const handleBotCreated = (botData) => {
     console.log('Bot created:', botData)
     refreshBots() // Trigger bot list refresh
+  }
+
+  const handleSettingsClick = () => {
+    console.log('Settings button clicked') // Debug log
+    if (onOpenSettings) {
+      onOpenSettings()
+    } else {
+      console.error('onOpenSettings prop not provided')
+    }
   }
 
   return (
@@ -28,7 +35,7 @@ function Header() {
           <Button 
             variant="secondary" 
             size="sm" 
-            onClick={() => setShowSettings(true)}
+            onClick={handleSettingsClick}
           >
             ⚙️ Settings
           </Button>
@@ -58,12 +65,6 @@ function Header() {
         <BotCreationForm 
           onClose={() => setShowBotForm(false)}
           onBotCreated={handleBotCreated}
-        />
-      )}
-
-      {showSettings && (
-        <SettingsModal 
-          onClose={() => setShowSettings(false)}
         />
       )}
     </>

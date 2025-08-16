@@ -4,6 +4,34 @@ import prisma from '../db/client.js'
 
 const router = express.Router()
 
+// Validate user exists (for auth validation)
+router.get('/users/validate/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        avatar: true,
+        bio: true,
+        isBot: true,
+        isOnline: true
+      }
+    })
+    
+    if (user) {
+      res.json(user)
+    } else {
+      res.status(404).json({ error: 'User not found' })
+    }
+  } catch (error) {
+    console.error('Error validating user:', error)
+    res.status(500).json({ error: 'Failed to validate user' })
+  }
+})
+
 // Create human user
 router.post('/users', async (req, res) => {
   try {

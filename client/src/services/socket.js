@@ -5,6 +5,18 @@ let socket = null
 const initializeSocket = () => {
   if (!socket) {
     socket = io('http://localhost:5000')
+
+    // Handle authentication errors
+    socket.on('error', (error) => {
+      if (error.code === 'USER_NOT_FOUND') {
+        console.log('❌ User not found in database, forcing logout')
+        // Clear localStorage and force re-registration
+        localStorage.removeItem('chatterbox_user')
+        window.location.reload()
+      } else {
+        console.error('Socket error:', error)
+      }
+    })
   }
   return socket
 }

@@ -34,15 +34,15 @@ export const handleConnection = (socket, io) => {
     try {
       console.log('💬 Message received:', data)
       
-      // For now, create a temporary user if none exists
+      // Check if user exists in database (no more temporary users)
       let user = await getUserByUsername(data.author)
       if (!user) {
-        user = await prisma.user.create({
-          data: {
-            username: data.author,
-            isBot: false
-          }
+        console.log(`❌ User ${data.author} not found in database`)
+        socket.emit('error', { 
+          message: 'User not found. Please register or login again.',
+          code: 'USER_NOT_FOUND'
         })
+        return
       }
 
       // Get or create the general channel
