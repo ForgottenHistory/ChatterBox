@@ -64,6 +64,7 @@ export const getFormattedLLMSettings = async () => {
   // Return only the settings data without metadata
   return {
     provider: settings.provider,
+    api_key: settings.api_key || '',
     model,
     system_prompt: settings.system_prompt,
     temperature: settings.temperature,

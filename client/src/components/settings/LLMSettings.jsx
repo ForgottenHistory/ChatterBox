@@ -10,6 +10,7 @@ function LLMSettings({ onClose }) {
   const scrollRef = useRef(null)
   const [settings, setSettings] = useState({
     provider: 'featherless',
+    api_key: '',
     model: null,
     system_prompt: 'You are a helpful AI assistant.',
     temperature: 0.7,
@@ -107,6 +108,7 @@ function LLMSettings({ onClose }) {
   const resetToDefaults = () => {
     setSettings(prev => ({
       ...prev,
+      api_key: '',
       model: null,
       system_prompt: 'You are a helpful AI assistant.',
       temperature: 0.7,
@@ -159,6 +161,43 @@ function LLMSettings({ onClose }) {
               <option value="anthropic" disabled>Anthropic (Coming Soon)</option>
               <option value="local" disabled>Local (Coming Soon)</option>
             </select>
+          </div>
+
+          {/* API Key */}
+          <div>
+            <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
+              API Key
+              <span className="text-[#72767D] ml-1">
+                ({settings.provider === 'featherless' ? 'Featherless' : 'Provider'} API Key)
+              </span>
+            </label>
+            <input
+              type="password"
+              name="api_key"
+              value={settings.api_key}
+              onChange={handleInputChange}
+              placeholder={`Enter your ${settings.provider === 'featherless' ? 'Featherless' : 'provider'} API key`}
+              className="w-full bg-[#40444B] text-[#FFFFFF] placeholder-[#72767D] px-4 py-3 rounded-lg border-none outline-none focus:ring-2 focus:ring-[#5865F2]"
+            />
+            {settings.provider === 'featherless' && (
+              <p className="text-[#72767D] text-xs mt-1">
+                Get your API key from{' '}
+                <a 
+                  href="https://featherless.ai" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#5865F2] hover:underline"
+                >
+                  featherless.ai
+                </a>
+              </p>
+            )}
+            {settings.api_key && (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="w-2 h-2 bg-[#57F287] rounded-full"></div>
+                <span className="text-[#57F287] text-xs">API key saved</span>
+              </div>
+            )}
           </div>
 
           {/* Model Selection */}

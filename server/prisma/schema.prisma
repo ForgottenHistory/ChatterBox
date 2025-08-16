@@ -88,6 +88,7 @@ model Message {
 model LLMSetting {
   id                  Int     @id @default(autoincrement())
   provider            String  @default("featherless")
+  api_key             String? 
   model_id            String?
   model_data          String? // JSON string of full model object
   system_prompt       String  @default("You are a helpful AI assistant.")
