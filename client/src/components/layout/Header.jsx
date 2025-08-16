@@ -1,5 +1,5 @@
 import { useAuth } from '../../contexts/AuthContext'
-import Avatar from '../ui/Avatar'
+import UserInfo from '../ui/UserInfo'
 import Button from '../ui/Button'
 
 function Header() {
@@ -12,16 +12,7 @@ function Header() {
       </div>
       
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Avatar 
-            name={user?.username} 
-            avatar={user?.avatar}
-            size="sm"
-          />
-          <div className="text-[#B9BBBE] text-sm">
-            Welcome, {user?.username}!
-          </div>
-        </div>
+        <UserInfo user={user} showWelcome />
         
         <Button 
           variant="ghost" 

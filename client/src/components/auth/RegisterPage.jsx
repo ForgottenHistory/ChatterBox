@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import Button from '../ui/Button'
-import Input from '../ui/Input'
+import FormField from '../ui/FormField'
+import FileUpload from '../ui/FileUpload'
+import ErrorMessage from '../ui/ErrorMessage'
 
 function RegisterPage() {
   const { login } = useAuth()
@@ -91,74 +93,43 @@ function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-[#ED4245] text-white p-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+          <ErrorMessage message={error} />
 
-          <div>
-            <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
-              Username *
-            </label>
-            <Input
-              name="username"
-              value={formData.username}
-              onChange={handleInputChange}
-              placeholder="Enter your username"
-              required
-            />
-          </div>
+          <FormField
+            label="Username"
+            name="username"
+            value={formData.username}
+            onChange={handleInputChange}
+            placeholder="Enter your username"
+            required
+          />
 
-          <div>
-            <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
-              Email
-            </label>
-            <Input
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="Enter your email (optional)"
-            />
-          </div>
+          <FormField
+            label="Email"
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            placeholder="Enter your email (optional)"
+          />
 
-          <div>
-            <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
-              Bio
-            </label>
-            <Input
-              name="bio"
-              value={formData.bio}
-              onChange={handleInputChange}
-              placeholder="Tell us about yourself (optional)"
-            />
-          </div>
+          <FormField
+            label="Bio"
+            name="bio"
+            value={formData.bio}
+            onChange={handleInputChange}
+            placeholder="Tell us about yourself (optional)"
+          />
 
           <div>
             <label className="block text-[#B9BBBE] text-sm font-medium mb-2">
               Avatar
             </label>
-            <div className="flex items-center gap-4">
-              {avatarPreview && (
-                <img
-                  src={avatarPreview}
-                  alt="Avatar preview"
-                  className="w-16 h-16 rounded-full object-cover border-2 border-[#5865F2]"
-                />
-              )}
-              <label className="cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
-                <div className="bg-[#40444B] hover:bg-[#36393F] text-[#B9BBBE] px-4 py-2 rounded-lg border border-[#40444B] transition-colors">
-                  Choose Image
-                </div>
-              </label>
-            </div>
+            <FileUpload
+              file={avatar}
+              preview={avatarPreview}
+              onFileChange={handleAvatarChange}
+            />
           </div>
 
           <Button 

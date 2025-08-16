@@ -4,6 +4,7 @@ import Header from './components/layout/Header'
 import Sidebar from './components/layout/Sidebar'
 import MessageList from './components/chat/MessageList'
 import MessageInput from './components/chat/MessageInput'
+import LoadingSpinner from './components/ui/LoadingSpinner'
 
 function ChatInterface() {
   return (
@@ -26,7 +27,7 @@ function AppContent() {
   if (loading) {
     return (
       <div className="h-screen bg-[#36393F] flex items-center justify-center">
-        <div className="text-[#FFFFFF] text-lg">Loading...</div>
+        <LoadingSpinner size="lg" centered />
       </div>
     )
   }
