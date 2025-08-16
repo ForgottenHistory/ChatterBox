@@ -4,7 +4,7 @@ import { useBot } from '../../contexts/BotContext'
 import UserInfo from '../ui/UserInfo'
 import Button from '../ui/Button'
 import BotCreationForm from '../bots/BotCreationForm'
-import LLMSettings from '../settings/LLMSettings'
+import SettingsModal from '../settings/SettingsModal'
 
 function Header() {
   const { user, logout } = useAuth()
@@ -62,7 +62,7 @@ function Header() {
       )}
 
       {showSettings && (
-        <LLMSettings 
+        <SettingsModal 
           onClose={() => setShowSettings(false)}
         />
       )}
