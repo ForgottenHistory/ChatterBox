@@ -9,8 +9,6 @@ router.get('/models', async (req, res) => {
   try {
     const { provider = 'featherless', page = 1, limit = 10, search = '' } = req.query
     
-    console.log(`📡 Fetching models: provider=${provider}, page=${page}, limit=${limit}, search="${search}"`)
-    
     const result = await modelService.getModels(
       provider, 
       parseInt(page), 
@@ -18,7 +16,6 @@ router.get('/models', async (req, res) => {
       search
     )
     
-    console.log(`✅ Found ${result.models.length} models (${result.total} total)${search ? ` matching "${search}"` : ''}`)
     res.json(result)
   } catch (error) {
     console.error('❌ Error fetching models:', error)
