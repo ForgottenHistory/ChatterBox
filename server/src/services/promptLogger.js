@@ -65,10 +65,6 @@ GENERATION PARAMETERS:
 - Top K: ${metadata.topK || 'Unknown'}
 - Max Tokens: ${metadata.maxTokens || 'Unknown'}
 
-TEMPLATE VARIABLES USED:
-${this.formatTemplateVariables(metadata.templateVariables)}
-
-${separator}
 FINAL PROMPT SENT TO LLM:
 ${separator}
 
