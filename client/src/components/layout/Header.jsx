@@ -4,11 +4,13 @@ import { useBot } from '../../contexts/BotContext'
 import UserInfo from '../ui/UserInfo'
 import Button from '../ui/Button'
 import BotCreationForm from '../bots/BotCreationForm'
+import LLMSettings from '../settings/LLMSettings'
 
 function Header() {
   const { user, logout } = useAuth()
   const { refreshBots } = useBot()
   const [showBotForm, setShowBotForm] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   const handleBotCreated = (botData) => {
     console.log('Bot created:', botData)
@@ -23,6 +25,14 @@ function Header() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => setShowSettings(true)}
+          >
+            ⚙️ Settings
+          </Button>
+          
           <Button 
             variant="success" 
             size="sm" 
@@ -48,6 +58,12 @@ function Header() {
         <BotCreationForm 
           onClose={() => setShowBotForm(false)}
           onBotCreated={handleBotCreated}
+        />
+      )}
+
+      {showSettings && (
+        <LLMSettings 
+          onClose={() => setShowSettings(false)}
         />
       )}
     </>
