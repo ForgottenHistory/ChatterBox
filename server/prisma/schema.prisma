@@ -85,6 +85,13 @@ model Message {
   @@map("messages")
 }
 
+model TemplateSettings {
+  id             Int      @id @default(autoincrement())
+  prompt_template String  @default("{system_prompt}\n\nCharacter: {character_name}\nDescription: {character_description}\nPersonality: {character_personality}\n\nConversation History:\n{conversation_history}\n\n{user_name}: {user_message}\n{character_name}:")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model LLMSetting {
   id                  Int     @id @default(autoincrement())
   provider            String  @default("featherless")

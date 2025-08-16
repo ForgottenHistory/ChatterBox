@@ -1,5 +1,6 @@
 import express from 'express'
 import { getLLMSettings, updateLLMSettings, getFormattedLLMSettings } from '../services/llmSettingsService.js'
+import { getTemplateSettings, updateTemplateSettings, getFormattedTemplateSettings } from '../services/templateSettingsService.js'
 import { modelService } from '../services/modelService.js'
 
 const router = express.Router()
@@ -9,8 +10,6 @@ router.get('/models', async (req, res) => {
   try {
     const { provider = 'featherless', page = 1, limit = 10, search = '' } = req.query
     
-    console.log(`📡 Fetching models: provider=${provider}, page=${page}, limit=${limit}, search="${search}"`)
-    
     const result = await modelService.getModels(
       provider, 
       parseInt(page), 
@@ -18,7 +17,6 @@ router.get('/models', async (req, res) => {
       search
     )
     
-    console.log(`✅ Found ${result.models.length} models (${result.total} total)${search ? ` matching "${search}"` : ''}`)
     res.json(result)
   } catch (error) {
     console.error('❌ Error fetching models:', error)
@@ -95,6 +93,37 @@ router.post('/llm', async (req, res) => {
   } catch (error) {
     console.error('Error updating LLM settings:', error)
     res.status(500).json({ error: 'Failed to update LLM settings' })
+  }
+})
+
+// Get template settings
+router.get('/templates', async (req, res) => {
+  try {
+    const settings = await getFormattedTemplateSettings()
+    res.json(settings)
+  } catch (error) {
+    console.error('Error fetching template settings:', error)
+    res.status(500).json({ error: 'Failed to fetch template settings' })
+  }
+})
+
+// Update template settings
+router.post('/templates', async (req, res) => {
+  try {
+    const { prompt_template } = req.body
+
+    if (!prompt_template || prompt_template.trim() === '') {
+      return res.status(400).json({ error: 'Prompt template cannot be empty' })
+    }
+
+    const updatedSettings = await updateTemplateSettings({
+      prompt_template
+    })
+
+    res.json({ success: true, settings: updatedSettings })
+  } catch (error) {
+    console.error('Error updating template settings:', error)
+    res.status(500).json({ error: 'Failed to update template settings' })
   }
 })
 
