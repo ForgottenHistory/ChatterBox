@@ -2,6 +2,7 @@ import express from 'express'
 import { getLLMSettings, updateLLMSettings, getFormattedLLMSettings } from '../services/llmSettingsService.js'
 import { getTemplateSettings, updateTemplateSettings, getFormattedTemplateSettings } from '../services/templateSettingsService.js'
 import { modelService } from '../services/modelService.js'
+import { promptLogger } from '../services/promptLogger.js'
 
 const router = express.Router()
 
@@ -10,6 +11,8 @@ router.get('/models', async (req, res) => {
   try {
     const { provider = 'featherless', page = 1, limit = 10, search = '' } = req.query
     
+    console.log(`📡 Fetching models: provider=${provider}, page=${page}, limit=${limit}, search="${search}"`)
+    
     const result = await modelService.getModels(
       provider, 
       parseInt(page), 
@@ -17,6 +20,7 @@ router.get('/models', async (req, res) => {
       search
     )
     
+    console.log(`✅ Found ${result.models.length} models (${result.total} total)${search ? ` matching "${search}"` : ''}`)
     res.json(result)
   } catch (error) {
     console.error('❌ Error fetching models:', error)
@@ -104,6 +108,22 @@ router.get('/templates', async (req, res) => {
   } catch (error) {
     console.error('Error fetching template settings:', error)
     res.status(500).json({ error: 'Failed to fetch template settings' })
+  }
+})
+
+// Get latest prompt log (for debugging)
+router.get('/latest-prompt', async (req, res) => {
+  try {
+    const latestPrompt = promptLogger.getLatestPrompt()
+    if (latestPrompt) {
+      res.set('Content-Type', 'text/plain')
+      res.send(latestPrompt)
+    } else {
+      res.status(404).json({ error: 'No prompt log found' })
+    }
+  } catch (error) {
+    console.error('Error fetching latest prompt:', error)
+    res.status(500).json({ error: 'Failed to fetch latest prompt' })
   }
 })
 
