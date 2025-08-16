@@ -67,7 +67,7 @@ io.on('connection', async (socket) => {
     const generalChannel = await prisma.channel.findFirst({
       where: { name: 'general' }
     })
-    
+
     if (generalChannel) {
       const messages = await getMessagesByChannel(generalChannel.id)
       socket.emit('load_messages', messages.reverse())
@@ -80,7 +80,7 @@ io.on('connection', async (socket) => {
   socket.on('send_message', async (data) => {
     try {
       console.log('Message received:', data)
-      
+
       // For now, create a temporary user if none exists
       let user = await getUserByUsername(data.author)
       if (!user) {
@@ -124,6 +124,22 @@ io.on('connection', async (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id)
+  })
+
+  // Handle request for messages
+  socket.on('request_messages', async () => {
+    try {
+      const generalChannel = await prisma.channel.findFirst({
+        where: { name: 'general' }
+      })
+
+      if (generalChannel) {
+        const messages = await getMessagesByChannel(generalChannel.id)
+        socket.emit('load_messages', messages.reverse())
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error)
+    }
   })
 })
 

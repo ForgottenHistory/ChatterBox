@@ -1,16 +1,18 @@
 import { useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import { sendMessage } from '../../services/socket'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 
 function MessageInput() {
+  const { user } = useAuth()
   const [message, setMessage] = useState('')
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (message.trim()) {
+    if (message.trim() && user) {
       sendMessage({
-        author: 'You',
+        author: user.username,
         content: message.trim()
       })
       setMessage('')
@@ -23,10 +25,10 @@ function MessageInput() {
         <Input
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Message #general"
+          placeholder={`Message #general`}
           className="flex-1"
         />
-        <Button type="submit" size="lg">
+        <Button type="submit" size="lg" disabled={!message.trim()}>
           Send
         </Button>
       </form>

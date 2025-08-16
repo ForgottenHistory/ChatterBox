@@ -1,9 +1,11 @@
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import RegisterPage from './components/auth/RegisterPage'
 import Header from './components/layout/Header'
 import Sidebar from './components/layout/Sidebar'
 import MessageList from './components/chat/MessageList'
 import MessageInput from './components/chat/MessageInput'
 
-function App() {
+function ChatInterface() {
   return (
     <div className="h-screen bg-[#36393F] flex flex-col">
       <Header />
@@ -15,6 +17,28 @@ function App() {
         </main>
       </div>
     </div>
+  )
+}
+
+function AppContent() {
+  const { isAuthenticated, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-[#36393F] flex items-center justify-center">
+        <div className="text-[#FFFFFF] text-lg">Loading...</div>
+      </div>
+    )
+  }
+
+  return isAuthenticated ? <ChatInterface /> : <RegisterPage />
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
 

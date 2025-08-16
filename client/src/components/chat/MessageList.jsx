@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { onNewMessage, onLoadMessages } from '../../services/socket'
+import { onNewMessage, onLoadMessages, requestMessageLoad } from '../../services/socket'
 import Avatar from '../ui/Avatar'
 import Badge from '../ui/Badge'
 
@@ -7,6 +7,9 @@ function MessageList() {
   const [messages, setMessages] = useState([])
 
   useEffect(() => {
+    // Request messages when component mounts
+    requestMessageLoad()
+
     // Load existing messages
     const cleanupLoad = onLoadMessages((loadedMessages) => {
       const formattedMessages = loadedMessages.map(msg => ({
