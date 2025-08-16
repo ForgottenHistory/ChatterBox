@@ -1,3 +1,5 @@
+import BotList from '../bots/BotList'
+
 function Sidebar() {
   const channels = [
     { id: 1, name: 'general', type: 'text' },
@@ -13,22 +15,29 @@ function Sidebar() {
       </div>
 
       {/* Channels */}
-      <div className="flex-1 p-2">
-        <div className="mb-4">
-          <h3 className="text-[#8E9297] text-xs font-semibold uppercase mb-2 px-2">
-            Text Channels
-          </h3>
-          {channels.map(channel => (
-            <div 
-              key={channel.id}
-              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[#40444B] cursor-pointer group"
-            >
-              <span className="text-[#8E9297]">#</span>
-              <span className="text-[#B9BBBE] group-hover:text-[#FFFFFF]">
-                {channel.name}
-              </span>
-            </div>
-          ))}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-2">
+          <div className="mb-4">
+            <h3 className="text-[#8E9297] text-xs font-semibold uppercase mb-2 px-2">
+              Text Channels
+            </h3>
+            {channels.map(channel => (
+              <div 
+                key={channel.id}
+                className="flex items-center gap-2 px-2 py-1 rounded hover:bg-[#40444B] cursor-pointer group"
+              >
+                <span className="text-[#8E9297]">#</span>
+                <span className="text-[#B9BBBE] group-hover:text-[#FFFFFF]">
+                  {channel.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bot List */}
+        <div className="border-t border-[#40444B]">
+          <BotList />
         </div>
       </div>
     </aside>

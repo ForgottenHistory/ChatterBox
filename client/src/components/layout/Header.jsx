@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useBot } from '../../contexts/BotContext'
 import UserInfo from '../ui/UserInfo'
 import Button from '../ui/Button'
 import BotCreationForm from '../bots/BotCreationForm'
 
 function Header() {
   const { user, logout } = useAuth()
+  const { refreshBots } = useBot()
   const [showBotForm, setShowBotForm] = useState(false)
 
   const handleBotCreated = (botData) => {
     console.log('Bot created:', botData)
-    // Could show a success message or refresh bot list
+    refreshBots() // Trigger bot list refresh
   }
 
   return (
