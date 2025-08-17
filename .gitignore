@@ -144,3 +144,4 @@ server/uploads/*
 PROJECT_STRUCTURE.md
 server/prisma/dev.db-journal
 server/logs/*
+code_analysis.md
