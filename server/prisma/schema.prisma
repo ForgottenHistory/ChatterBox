@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String?
+  password     String?
+  avatar       String?
+  bio          String?
+  isBot        Boolean  @default(false)
+  isOnline     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Bot-specific fields
+  systemPrompt    String?
+  personality     String?
+  isActive        Boolean? @default(true)
+  triggerInterval Int?     @default(10) // minutes
+  lastMessageAt   DateTime?
+
+  // Character card metadata
+  creator_notes     String?
+  tags             String?
+  creator          String?
+  character_version String?
+
+  // Relations
+  messages        Message[]
+  channelMembers  ChannelMember[]
+}
+
+model Channel {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  messages Message[]
+  members  ChannelMember[]
+  
+  @@map("channels")
+}
+
+model ChannelMember {
+  id        String @id @default(cuid())
+  userId    String
+  channelId String
+  role      String @default("member") // member, admin, owner
+  joinedAt  DateTime @default(now())
+
+  // Relationships
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
+  @@map("channel_members")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  channelId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+}
+
+model TemplateSettings {
+  id             Int      @id @default(autoincrement())
+  prompt_template String  @default("{system_prompt}\n\nCharacter: {character_name}\nDescription: {character_description}\nPersonality: {character_personality}\n\nConversation History:\n{conversation_history}\n\n{user_name}: {user_message}\n{character_name}:")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model LLMSetting {
+  id                  Int     @id @default(autoincrement())
+  provider            String  @default("featherless")
+  api_key             String? 
+  model_id            String?
+  model_data          String? // JSON string of full model object
+  system_prompt       String  @default("You are a helpful AI assistant.")
+  temperature         Float   @default(0.7)
+  top_p               Float   @default(1.0)
+  top_k               Int     @default(-1)
+  frequency_penalty   Float   @default(0.0)
+  presence_penalty    Float   @default(0.0)
+  repetition_penalty  Float   @default(1.0)
+  min_p               Float   @default(0.0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model SystemSetting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  
+  @@map("system_settings")
+}

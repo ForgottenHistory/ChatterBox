@@ -1,251 +1,165 @@
-const LLMQueueManager = require('../managers/llmQueueManager');
-const ModelManager = require('../managers/modelManager');
-const PromptManager = require('../managers/promptManager');
-const ParameterManager = require('../managers/parameterManager');
-const ResponseHandler = require('../handlers/responseHandler');
+import { getFormattedLLMSettings } from './llmSettingsService.js'
+import { getFormattedTemplateSettings } from './templateSettingsService.js'
+import { promptLogger } from './promptLogger.js'
 
 class LLMService {
   constructor() {
-    // Initialize queue manager with default concurrent limit
-    this.queueManager = new LLMQueueManager(4);
-
-    // Initialize other managers
-    this.modelManager = new ModelManager();
-    this.promptManager = new PromptManager();
-    this.parameterManager = new ParameterManager();
-    this.responseHandler = new ResponseHandler();
-
-    console.log('LLM Service initialized with queue system');
+    // Future: This will be where we add request queueing
+    this.requestQueue = []
+    this.isProcessing = false
   }
 
-  // Model management (delegate to ModelManager)
-  getCurrentModel() {
-    return this.modelManager.getCurrentModel();
-  }
-
-  setModel(modelId) {
-    return this.modelManager.setModel(modelId);
-  }
-
-  resetToDefaultModel() {
-    return this.modelManager.resetToDefault();
-  }
-
-  // Sync concurrent limit with settings (call this after settings load)
-  syncConcurrentLimit(settings) {
-    if (settings && settings.maxConcurrent) {
-      this.setMaxConcurrentRequests(settings.maxConcurrent);
-    }
-  }
-
-  async getEnhancedStatus() {
-    const modelStatus = await this.modelManager.getEnhancedStatus();
-    const queueStatus = this.queueManager.getDetailedStatus();
-
-    return {
-      ...modelStatus,
-      configured: this.isConfigured(),
-      queue: queueStatus
-    };
-  }
-
-  // Main response generation method with queueing
-  async generateResponse(botContext, userMessage, conversationHistory = [], globalLlmSettings = {}, options = {}) {
+  async generateResponse(templateVariables) {
     try {
-      console.log(`Queuing response generation for ${botContext.name}`);
+      // Get current settings
+      const llmSettings = await getFormattedLLMSettings()
+      const templateSettings = await getFormattedTemplateSettings()
 
-      // Get model context length
-      const contextLength = await this.modelManager.getContextLength();
-
-      // Prepare complete prompt
-      const promptData = await this.promptManager.preparePrompt(
-        botContext,
-        userMessage,
-        conversationHistory,
-        globalLlmSettings,
-        contextLength,
-        options
-      );
-
-      // Prepare API parameters
-      const apiParams = this.parameterManager.prepareApiParams(
-        globalLlmSettings,
-        botContext.llmSettings,
-        512 // maxTokens
-      );
-
-      // Determine priority based on context
-      const priority = this.determinePriority(userMessage, botContext, options);
-
-      // Queue the request
-      const result = await this.queueManager.queueLLMRequest(
-        this.getCurrentModel(),
-        promptData.messages,
-        apiParams,
-        botContext,
-        priority
-      );
-
-      // Handle the result
-      if (result.success) {
-        const processedResponse = this.responseHandler.postProcessResponse(
-          result.content,
-          botContext
-        );
-
-        return this.responseHandler.validateResponse(processedResponse, botContext);
-      } else {
-        console.error(`Queued request failed for ${botContext.name}:`, result.error);
-        return result.fallbackContent || this.responseHandler.getFallbackResponse(botContext);
+      // Validate required settings
+      if (!llmSettings.api_key) {
+        throw new Error('API key not configured')
       }
+      if (!llmSettings.model?.id) {
+        throw new Error('Model not selected')
+      }
+
+      // Format the prompt using template variables
+      const prompt = this.formatPrompt(templateSettings.prompt_template, templateVariables)
+
+      // Log the prompt for debugging
+      promptLogger.logPrompt(prompt, {
+        provider: llmSettings.provider,
+        model: llmSettings.model.id,
+        botName: templateVariables.character_name,
+        temperature: llmSettings.temperature,
+        topP: llmSettings.top_p,
+        topK: llmSettings.top_k,
+        maxTokens: Math.min(llmSettings.model.max_completion_tokens || 4096, 2048),
+        templateVariables: templateVariables
+      })
+
+      console.log('🤖 Generating LLM response:', {
+        model: llmSettings.model.id,
+        promptLength: prompt.length,
+        variables: Object.keys(templateVariables)
+      })
+
+      // Make API call to Featherless
+      const response = await this.callFeatherlessAPI(prompt, llmSettings)
+      
+      // Log the response
+      promptLogger.logResponse(response, {
+        model: llmSettings.model.id,
+        botName: templateVariables.character_name,
+        responseLength: response.length
+      })
+      
+      console.log('✅ LLM response generated successfully')
+      return response
 
     } catch (error) {
-      console.error(`Error in generateResponse for ${botContext.name}:`, error);
-      return this.responseHandler.handleApiError(error, botContext);
+      console.error('❌ LLM generation failed:', error)
+      throw error
     }
   }
 
-  // Determine request priority based on context
-  determinePriority(userMessage, botContext, options) {
-    // High priority: Direct mentions or urgent responses
-    if (options.highPriority || this.isDirectMention(userMessage, botContext)) {
-      return 10;
+  formatPrompt(template, variables) {
+    let prompt = template
+
+    // Replace all template variables
+    for (const [key, value] of Object.entries(variables)) {
+      const placeholder = `{${key}}`
+      prompt = prompt.replaceAll(placeholder, value || '')
     }
 
-    // Low priority: Random responses or background chatter
-    if (options.lowPriority) {
-      return -10;
+    // Clean up any remaining empty lines or extra whitespace
+    prompt = prompt
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n')
+
+    return prompt
+  }
+
+  async callFeatherlessAPI(prompt, settings) {
+    const requestBody = {
+      model: settings.model.id,
+      prompt: prompt,
+      temperature: settings.temperature,
+      top_p: settings.top_p,
+      top_k: settings.top_k,
+      min_p: settings.min_p,
+      frequency_penalty: settings.frequency_penalty,
+      presence_penalty: settings.presence_penalty,
+      repetition_penalty: settings.repetition_penalty,
+      max_tokens: Math.min(settings.model.max_completion_tokens || 4096, 2048), // Reasonable default
+      stop: ['\n\n', 'User:', 'Human:'], // Stop on common conversation breaks
     }
 
-    // Normal priority: Regular responses
-    return 0;
-  }
-
-  // Check if bot is directly mentioned
-  isDirectMention(userMessage, botContext) {
-    if (!userMessage.content) return false;
-
-    const content = userMessage.content.toLowerCase();
-    const botName = botContext.name.toLowerCase();
-
-    return content.includes(`@${botName}`) || content.includes(botName);
-  }
-
-  // Configuration check
-  isConfigured() {
-    return !!process.env.FEATHERLESS_API_KEY;
-  }
-
-  // Queue management methods
-  setMaxConcurrentRequests(limit) {
-    this.queueManager.setMaxConcurrent(limit);
-    console.log(`LLM concurrent request limit set to: ${limit}`);
-  }
-
-  getQueueStatus() {
-    return this.queueManager.getDetailedStatus();
-  }
-
-  clearQueue() {
-    return this.queueManager.clearQueue();
-  }
-
-  // Legacy support methods (updated to use queue)
-  setModelParameters(params) {
-    if (params.model) {
-      this.setModel(params.model);
-    }
-
-    if (params.maxConcurrent) {
-      this.setMaxConcurrentRequests(params.maxConcurrent);
-    }
-
-    console.log('LLM parameters updated:', {
-      model: this.getCurrentModel(),
-      configured: this.isConfigured(),
-      maxConcurrent: this.queueManager.maxConcurrent
-    });
-  }
-
-  getModelParameters() {
-    return {
-      model: this.getCurrentModel(),
-      maxTokens: 512,
-      configured: this.isConfigured(),
-      maxConcurrent: this.queueManager.maxConcurrent
-    };
-  }
-
-  getStatus() {
-    const queueStatus = this.queueManager.getStatus();
-
-    return {
-      configured: this.isConfigured(),
-      currentModel: this.getCurrentModel(),
-      defaultModel: this.modelManager.defaultModel,
-      maxTokens: 512,
-      provider: 'Featherless AI',
-      queue: {
-        maxConcurrent: queueStatus.maxConcurrent,
-        activeRequests: queueStatus.activeRequests,
-        queuedRequests: queueStatus.queuedRequests
+    console.log('📡 Featherless API request:', {
+      model: requestBody.model,
+      promptLength: prompt.length,
+      parameters: {
+        temperature: requestBody.temperature,
+        top_p: requestBody.top_p,
+        max_tokens: requestBody.max_tokens
       }
-    };
-  }
+    })
 
-  // Get detailed service information
-  async getDetailedStatus() {
-    const enhancedStatus = await this.getEnhancedStatus();
+    const response = await fetch('https://api.featherless.ai/v1/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${settings.api_key}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:5173',
+        'X-Title': 'ChatterBox'
+      },
+      body: JSON.stringify(requestBody)
+    })
 
-    return {
-      ...enhancedStatus,
-      managers: {
-        model: this.modelManager.getCacheStats(),
-        prompt: { initialized: true },
-        parameters: { initialized: true },
-        response: this.responseHandler.getStats(),
-        queue: this.queueManager.getMetrics()
-      }
-    };
-  }
-
-  // Clear all caches and reset queue
-  clearCaches() {
-    this.modelManager.clearCache();
-    this.queueManager.clearQueue();
-    console.log('All LLM service caches and queue cleared');
-  }
-
-  // For testing/debugging with queue
-  async testGeneration(testPrompt = "Hello, how are you?") {
-    const testContext = {
-      name: 'TestBot',
-      description: 'A test bot for debugging',
-      firstMessage: 'Hello! I am a test bot.'
-    };
-
-    const testMessage = {
-      content: testPrompt,
-      author: { username: 'TestUser' }
-    };
-
-    try {
-      const response = await this.generateResponse(testContext, testMessage);
-      return {
-        success: true,
-        response,
-        model: this.getCurrentModel(),
-        queueStatus: this.getQueueStatus()
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        model: this.getCurrentModel(),
-        queueStatus: this.getQueueStatus()
-      };
+    if (!response.ok) {
+      const errorData = await response.text()
+      throw new Error(`Featherless API error: ${response.status} ${response.statusText} - ${errorData}`)
     }
+
+    const data = await response.json()
+
+    if (!data.choices || data.choices.length === 0) {
+      throw new Error('No response choices returned from API')
+    }
+
+    // Extract the generated text
+    let generatedText = data.choices[0].text.trim()
+
+    // Clean up the response
+    generatedText = this.cleanResponse(generatedText)
+
+    console.log('🎯 Generated text:', {
+      length: generatedText.length,
+      preview: generatedText.substring(0, 100) + '...',
+      usage: data.usage
+    })
+
+    return generatedText
+  }
+
+  cleanResponse(text) {
+    // Remove common artifacts and clean up the response
+    return text
+      .trim()
+      .replace(/^(Assistant|Bot|AI):?\s*/i, '') // Remove bot name prefixes
+      .replace(/\n+/g, ' ') // Replace multiple newlines with single space
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+  }
+
+  // Future: This method will handle request queueing
+  async queueRequest(templateVariables) {
+    // For now, just call generateResponse directly
+    // Later: Add to queue, process with rate limiting, priority, etc.
+    return await this.generateResponse(templateVariables)
   }
 }
 
-module.exports = new LLMService();
+export const llmService = new LLMService()
