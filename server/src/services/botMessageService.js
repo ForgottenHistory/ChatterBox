@@ -42,8 +42,11 @@ class BotMessageService {
         lastUserMessage: templateVariables.user_message?.substring(0, 50) + '...'
       })
 
-      // Generate response using LLM
-      const generatedContent = await llmService.generateResponse(templateVariables)
+      // Determine priority based on trigger type
+      const priority = triggerContext.trigger_type === 'message_response' ? 'high' : 'normal'
+
+      // Generate response using queued LLM service
+      const generatedContent = await llmService.generateResponseQueued(templateVariables, priority)
 
       // Create and save the bot message
       const botMessage = await createMessage({
@@ -68,7 +71,7 @@ class BotMessageService {
 
     } catch (error) {
       console.error(`❌ Bot response generation failed for ${bot.username}:`, error)
-      
+
       // Create a fallback error message
       const fallbackMessage = await createMessage({
         content: `*[Error generating response: ${error.message}]*`,
@@ -133,7 +136,7 @@ class BotMessageService {
   shouldBotRespond(bot, message, channelActivity) {
     // Basic logic - can be enhanced later
     if (!bot.isActive) return false
-    
+
     // Don't respond to other bots (for now)
     if (message?.user?.isBot) return false
 
@@ -142,13 +145,13 @@ class BotMessageService {
     // - Keyword triggers: bot.keywords?.some(keyword => message.content.includes(keyword))
     // - Random chance based on activity level
     // - Time since last bot message
-    
+
     return true // For now, let interval-based triggering handle it
   }
 
   startBotScheduling(io) {
     console.log('🔄 Starting bot scheduling system...')
-    
+
     // Schedule periodic bot activity
     setInterval(async () => {
       await this.processBotSchedule(io)
@@ -171,9 +174,9 @@ class BotMessageService {
         const shouldTrigger = await this.shouldBotTriggerNow(bot)
         if (shouldTrigger) {
           console.log(`⏰ Triggering scheduled response for ${bot.username}`)
-          
+
           const result = await this.triggerBotResponse(bot.id, generalChannel.id, 'scheduled')
-          
+
           if (result && io) {
             // Broadcast the bot message
             io.emit('new_message', result.formattedMessage)

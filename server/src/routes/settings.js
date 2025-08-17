@@ -127,6 +127,42 @@ router.get('/latest-prompt', async (req, res) => {
   }
 })
 
+// Get queue status
+router.get('/queue/status', async (req, res) => {
+  try {
+    const { llmService } = await import('../services/llmService.js')
+    const status = llmService.getQueueStatus()
+    res.json(status)
+  } catch (error) {
+    console.error('Error fetching queue status:', error)
+    res.status(500).json({ error: 'Failed to fetch queue status' })
+  }
+})
+
+// Get detailed queue information
+router.get('/queue/detailed', async (req, res) => {
+  try {
+    const { llmService } = await import('../services/llmService.js')
+    const detailed = llmService.getDetailedQueueStatus()
+    res.json(detailed)
+  } catch (error) {
+    console.error('Error fetching detailed queue status:', error)
+    res.status(500).json({ error: 'Failed to fetch detailed queue status' })
+  }
+})
+
+// Clear queue (admin function)
+router.post('/queue/clear', async (req, res) => {
+  try {
+    const { llmService } = await import('../services/llmService.js')
+    llmService.clearQueue()
+    res.json({ success: true, message: 'Queue cleared' })
+  } catch (error) {
+    console.error('Error clearing queue:', error)
+    res.status(500).json({ error: 'Failed to clear queue' })
+  }
+})
+
 // Update template settings
 router.post('/templates', async (req, res) => {
   try {

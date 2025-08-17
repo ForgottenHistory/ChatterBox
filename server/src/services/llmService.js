@@ -1,14 +1,61 @@
 import { getFormattedLLMSettings } from './llmSettingsService.js'
 import { getFormattedTemplateSettings } from './templateSettingsService.js'
 import { promptLogger } from './promptLogger.js'
+import { requestQueue } from './requestQueue.js'
 
 class LLMService {
   constructor() {
-    // Future: This will be where we add request queueing
-    this.requestQueue = []
-    this.isProcessing = false
+    this.directCallTimeouts = new Map() // For direct calls (bypass queue)
   }
 
+  // Queued request (default, recommended)
+  async generateResponseQueued(templateVariables, priority = 'normal') {
+    return new Promise((resolve, reject) => {
+      const requestData = {
+        ...templateVariables,
+        onSuccess: (result, requestId) => {
+          console.log(`✅ Queued request ${requestId} completed`)
+          resolve(result)
+        },
+        onError: (error, requestId) => {
+          console.error(`❌ Queued request ${requestId} failed:`, error.message)
+          reject(error)
+        },
+        priority
+      }
+
+      const requestId = requestQueue.enqueue(requestData, priority)
+      console.log(`📤 Queued LLM request ${requestId} for bot: ${templateVariables.character_name}`)
+    })
+  }
+
+  // Direct request (bypass queue, for urgent/testing)
+  async generateResponseDirect(templateVariables, timeoutMs = 30000) {
+    const requestId = `direct_${Date.now()}`
+    
+    // Set timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error(`Request timeout after ${timeoutMs}ms`))
+      }, timeoutMs)
+      this.directCallTimeouts.set(requestId, timeout)
+    })
+
+    // Make request
+    const requestPromise = this.generateResponse(templateVariables)
+      .finally(() => {
+        // Clear timeout
+        const timeout = this.directCallTimeouts.get(requestId)
+        if (timeout) {
+          clearTimeout(timeout)
+          this.directCallTimeouts.delete(requestId)
+        }
+      })
+
+    return Promise.race([requestPromise, timeoutPromise])
+  }
+
+  // Core generation logic (used by queue)
   async generateResponse(templateVariables) {
     try {
       // Get current settings
@@ -93,8 +140,8 @@ class LLMService {
       frequency_penalty: settings.frequency_penalty,
       presence_penalty: settings.presence_penalty,
       repetition_penalty: settings.repetition_penalty,
-      max_tokens: Math.min(settings.model.max_completion_tokens || 4096, 2048), // Reasonable default
-      stop: ['\n\n', 'User:', 'Human:'], // Stop on common conversation breaks
+      max_tokens: Math.min(settings.model.max_completion_tokens || 4096, 2048),
+      stop: ['\n\n', 'User:', 'Human:'],
     }
 
     console.log('📡 Featherless API request:', {
@@ -154,11 +201,19 @@ class LLMService {
       .trim()
   }
 
-  // Future: This method will handle request queueing
-  async queueRequest(templateVariables) {
-    // For now, just call generateResponse directly
-    // Later: Add to queue, process with rate limiting, priority, etc.
-    return await this.generateResponse(templateVariables)
+  // Get queue status (for admin/monitoring)
+  getQueueStatus() {
+    return requestQueue.getStatus()
+  }
+
+  // Get detailed queue info
+  getDetailedQueueStatus() {
+    return requestQueue.getDetailedStatus()
+  }
+
+  // Clear queue (admin function)
+  clearQueue() {
+    requestQueue.clear()
   }
 }
 
