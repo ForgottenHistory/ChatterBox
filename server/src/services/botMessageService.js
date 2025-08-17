@@ -14,12 +14,14 @@ class BotMessageService {
 
       // Get recent conversation history
       const recentMessages = await getMessagesByChannel(channelId, 10)
-      const conversationHistory = this.formatConversationHistory(recentMessages)
 
       // Get the last user message if available
       const lastUserMessage = recentMessages
         .reverse()
         .find(msg => !msg.user.isBot)
+
+      // Format conversation history INCLUDING the current user message
+      const conversationHistory = this.formatConversationHistoryComplete(recentMessages, lastUserMessage)
 
       // Prepare template variables
       const templateVariables = {
@@ -91,6 +93,34 @@ class BotMessageService {
         }
       }
     }
+  }
+
+  // Format conversation history in proper chronological order (oldest first)
+  formatConversationHistoryComplete(messages, currentUserMessage) {
+    if (!messages || messages.length === 0) {
+      if (currentUserMessage) {
+        return `${currentUserMessage.user.username}: ${currentUserMessage.content}`
+      }
+      return 'No previous conversation.'
+    }
+
+    // Messages come from DB in DESC order (newest first)  
+    // Take the 8 most recent and DON'T reverse to see what we get
+    const recentMessages = messages
+      .slice(0, 8) // Take first 8 (most recent due to DESC order)
+      // Remove reverse to see the natural order
+      .map(msg => {
+        // Clean up the content
+        const cleanContent = msg.content
+          .replace(/\n+/g, ' ') // Replace newlines with spaces
+          .replace(/\s+/g, ' ') // Normalize whitespace
+          .trim()
+
+        return `${msg.user.username}: ${cleanContent}`
+      })
+      .join('\n')
+
+    return recentMessages
   }
 
   formatConversationHistory(messages, maxMessages = 8) {
