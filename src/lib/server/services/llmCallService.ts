@@ -14,6 +14,7 @@ interface LlmCallParams {
 		frequencyPenalty: number;
 		presencePenalty: number;
 		reasoningEnabled?: boolean;
+		modelPool?: string | null;
 		// Featherless-specific parameters
 		topK?: number;
 		minP?: number;
@@ -104,8 +105,19 @@ export async function callLlm({
 		throw new Error(`${providerConfig.name} API key not configured`);
 	}
 
+	// Pick model: use pool if available, otherwise primary model
+	let selectedModel = settings.model;
+	if (settings.modelPool) {
+		try {
+			const pool = JSON.parse(settings.modelPool);
+			if (Array.isArray(pool) && pool.length > 0) {
+				selectedModel = pool[Math.floor(Math.random() * pool.length)];
+			}
+		} catch {}
+	}
+
 	const requestBody: any = {
-		model: settings.model,
+		model: selectedModel,
 		messages,
 		temperature: settings.temperature,
 		max_tokens: settings.maxTokens,

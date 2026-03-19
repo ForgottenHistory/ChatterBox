@@ -2,6 +2,7 @@ import { llmService } from './services/llmService';
 import { llmLogService } from './services/llmLogService';
 import { personaService } from './services/personaService';
 import { lorebookService } from './services/lorebookService';
+import { getFormattedMemories } from './services/memoryService';
 import { logger } from './utils/logger';
 import type { Message, Character, LlmSettings } from './db/schema';
 import fs from 'fs/promises';
@@ -234,6 +235,12 @@ export async function generateChatCompletion(
 					}
 				}
 			} catch {}
+		}
+
+		// Add character memories
+		const memories = await getFormattedMemories(character.id, settings.userId);
+		if (memories) {
+			systemContent += `\n${memories}`;
 		}
 
 		// Add proactive instructions if this is a proactive message

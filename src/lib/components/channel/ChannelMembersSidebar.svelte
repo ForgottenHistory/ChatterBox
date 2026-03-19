@@ -7,9 +7,10 @@
 		user: UserWithoutPassword;
 		avatarStyle?: 'circle' | 'rounded';
 		engagedIds?: Set<number>;
+		onShowMemories?: (characterId: number, characterName: string) => void;
 	}
 
-	let { characters, user, avatarStyle = 'circle', engagedIds = new Set() }: Props = $props();
+	let { characters, user, avatarStyle = 'circle', engagedIds = new Set(), onShowMemories }: Props = $props();
 
 	let avatarClass = $derived(avatarStyle === 'rounded' ? 'rounded-lg' : 'rounded-full');
 	let memberAvatarSize = $derived(avatarStyle === 'rounded' ? 'w-7 h-9' : 'w-8 h-8');
@@ -223,6 +224,21 @@
 								</div>
 							{/each}
 						</div>
+					</div>
+				{/if}
+
+				<!-- Memories button -->
+				{#if onShowMemories}
+					<div class="mt-3 pt-3 border-t border-[var(--border-primary)]">
+						<button
+							onclick={(e: MouseEvent) => { e.stopPropagation(); onShowMemories(member.character.id, member.character.name); closePopover(); }}
+							class="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-lg transition cursor-pointer"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+							</svg>
+							View Memories
+						</button>
 					</div>
 				{/if}
 			</div>
