@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { contentLlmService, type ContentType } from '$lib/server/services/contentLlmService';
 
-const VALID_TYPES: ContentType[] = ['description', 'personality', 'scenario', 'message_example', 'greeting'];
+const VALID_TYPES: ContentType[] = ['description'];
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	const userId = cookies.get('userId');

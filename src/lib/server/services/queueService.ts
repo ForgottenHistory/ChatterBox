@@ -22,6 +22,7 @@ class QueueService {
 		// Set default concurrency limits per provider
 		this.maxConcurrent.set('openrouter', 3);
 		this.maxConcurrent.set('featherless', 3);
+		this.maxConcurrent.set('nanogpt', 50);
 	}
 
 	/**

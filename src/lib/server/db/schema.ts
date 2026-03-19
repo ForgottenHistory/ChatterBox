@@ -166,7 +166,6 @@ export const characters = sqliteTable('characters', {
 	tags: text('tags'), // JSON array of tags
 	imageData: text('image_data'), // Base64 image data (full size)
 	thumbnailData: text('thumbnail_data'), // Base64 thumbnail for sidebar
-	cardData: text('card_data').notNull(), // Full character card JSON
 	// Image generation settings (per-character)
 	imageTags: text('image_tags'), // Always included tags (hair color, eye color, body type)
 	contextualTags: text('contextual_tags'), // AI chooses from these based on context

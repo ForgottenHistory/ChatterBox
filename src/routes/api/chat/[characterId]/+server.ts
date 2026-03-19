@@ -1,6 +1,6 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { conversations, messages, characters } from '$lib/server/db/schema';
+import { conversations, messages } from '$lib/server/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
 // GET - Get or create conversation and fetch messages
@@ -59,39 +59,6 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 					characterId
 				})
 				.returning();
-
-			// Get character card to fetch first_mes
-			const [character] = await db
-				.select()
-				.from(characters)
-				.where(eq(characters.id, characterId))
-				.limit(1);
-
-			if (character && character.cardData) {
-				try {
-					const cardData = JSON.parse(character.cardData);
-					const firstMessage = cardData.data?.first_mes || cardData.first_mes;
-					const alternateGreetings = cardData.data?.alternate_greetings || cardData.alternate_greetings || [];
-
-					// Add first_mes as initial assistant message if it exists
-					if (firstMessage && firstMessage.trim()) {
-						// Build swipes array with first_mes and alternate_greetings
-						const swipes = [firstMessage.trim(), ...alternateGreetings.filter((g: string) => g && g.trim())];
-
-						await db.insert(messages).values({
-							conversationId: conversation.id,
-							role: 'assistant',
-							content: firstMessage.trim(),
-							swipes: swipes.length > 1 ? JSON.stringify(swipes) : null,
-							currentSwipe: 0,
-							senderName: character.name,
-							senderAvatar: character.thumbnailData || character.imageData
-						});
-					}
-				} catch (parseError) {
-					console.error('Failed to parse character card data:', parseError);
-				}
-			}
 		}
 
 		// Fetch messages for this conversation

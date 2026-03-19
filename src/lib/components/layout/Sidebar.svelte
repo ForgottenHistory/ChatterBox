@@ -19,7 +19,19 @@
 
 	let { user, currentPath, collapsed = $bindable() }: Props = $props();
 
-	let sidebarMode = $state<'channels' | 'dms'>('dms');
+	function getInitialMode(): 'channels' | 'dms' {
+		// Match mode to current route
+		if (currentPath.startsWith('/channel/')) return 'channels';
+		if (currentPath.startsWith('/chat/')) return 'dms';
+		// Otherwise use saved preference
+		if (typeof localStorage !== 'undefined') {
+			const saved = localStorage.getItem('sidebarMode');
+			if (saved === 'channels' || saved === 'dms') return saved;
+		}
+		return 'dms';
+	}
+
+	let sidebarMode = $state<'channels' | 'dms'>(getInitialMode());
 	let characters = $state<Character[]>(getCharactersCache());
 	let channels = $state<Conversation[]>([]);
 	let activePersona = $state<ActivePersonaInfo | null>(null);
@@ -62,11 +74,6 @@
 	}
 
 	onMount(() => {
-		const savedMode = localStorage.getItem('sidebarMode');
-		if (savedMode === 'channels' || savedMode === 'dms') {
-			sidebarMode = savedMode;
-		}
-
 		if (!isCharactersCacheLoaded()) {
 			loadCharacters();
 		}

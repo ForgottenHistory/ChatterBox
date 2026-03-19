@@ -5,7 +5,7 @@ import path from 'path';
 
 const PROMPTS_DIR = 'data/prompts';
 
-export type ContentType = 'description' | 'personality' | 'scenario' | 'message_example' | 'greeting';
+export type ContentType = 'description';
 
 class ContentLlmService {
 	/**

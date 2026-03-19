@@ -14,11 +14,7 @@ const DEFAULT_SYSTEM_PROMPT = `You are {{char}}.
 
 {{description}}
 
-Personality: {{personality}}
-
-Scenario: {{scenario}}
-
-Write your next reply as {{char}} in this roleplay chat with {{user}}.`;
+Write your next reply as {{char}} in this chat with {{user}}.`;
 
 const DEFAULT_IMPERSONATE_PROMPT = `Write the next message as {{user}} in this roleplay chat with {{char}}.
 
@@ -60,16 +56,12 @@ function replaceTemplateVariables(
 	variables: {
 		char: string;
 		user: string;
-		personality: string;
-		scenario: string;
 		description: string;
 	}
 ): string {
 	return template
 		.replace(/\{\{char\}\}/g, variables.char)
 		.replace(/\{\{user\}\}/g, variables.user)
-		.replace(/\{\{personality\}\}/g, variables.personality)
-		.replace(/\{\{scenario\}\}/g, variables.scenario)
 		.replace(/\{\{description\}\}/g, variables.description);
 }
 
@@ -92,19 +84,6 @@ export async function generateChatCompletion(
 	settings: LlmSettings,
 	messageType: string = 'chat'
 ): Promise<ChatCompletionResult> {
-	// Parse character card data
-	let characterData: any = {};
-	try {
-		characterData = JSON.parse(character.cardData);
-		// Handle both v1 and v2 character card formats
-		if (characterData.data) {
-			characterData = characterData.data;
-		}
-	} catch (error) {
-		console.error('Failed to parse character card data:', error);
-		throw new Error('Invalid character card data');
-	}
-
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
 	const userName = userInfo.name;
@@ -116,24 +95,11 @@ export async function generateChatCompletion(
 	const templateVariables = {
 		char: character.name || 'Character',
 		user: userName,
-		personality: characterData.personality || '',
-		scenario: characterData.scenario || '',
-		description: characterData.description || ''
+		description: character.description || ''
 	};
 
 	// Replace variables in template
-	const systemPrompt = replaceTemplateVariables(basePrompt, templateVariables);
-
-	// Add example dialogues if present (after template)
-	let finalSystemPrompt = systemPrompt;
-	if (characterData.mes_example) {
-		finalSystemPrompt += `\n\nExample Dialogue:\n${characterData.mes_example}`;
-	}
-
-	// Add custom system prompt if present (after everything)
-	if (characterData.system_prompt) {
-		finalSystemPrompt += `\n\n${characterData.system_prompt}`;
-	}
+	const finalSystemPrompt = replaceTemplateVariables(basePrompt, templateVariables);
 
 	// Add lorebook/world info context based on conversation keywords
 	const lorebookContext = await lorebookService.buildLorebookContext(
@@ -215,19 +181,6 @@ export async function generateImpersonation(
 	character: Character,
 	settings: LlmSettings
 ): Promise<string> {
-	// Parse character card data
-	let characterData: any = {};
-	try {
-		characterData = JSON.parse(character.cardData);
-		// Handle both v1 and v2 character card formats
-		if (characterData.data) {
-			characterData = characterData.data;
-		}
-	} catch (error) {
-		console.error('Failed to parse character card data:', error);
-		throw new Error('Invalid character card data');
-	}
-
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
 	const userName = userInfo.name;
@@ -239,9 +192,7 @@ export async function generateImpersonation(
 	const templateVariables = {
 		char: character.name || 'Character',
 		user: userName,
-		personality: characterData.personality || '',
-		scenario: characterData.scenario || '',
-		description: characterData.description || ''
+		description: character.description || ''
 	};
 
 	// Replace variables in template

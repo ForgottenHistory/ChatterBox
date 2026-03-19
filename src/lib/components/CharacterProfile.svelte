@@ -4,7 +4,6 @@
 	import ProfileHeader from './character-profile/ProfileHeader.svelte';
 	import ProfileTabs from './character-profile/ProfileTabs.svelte';
 	import OverviewTab from './character-profile/tabs/OverviewTab.svelte';
-	import MessagesTab from './character-profile/tabs/MessagesTab.svelte';
 	import ImageTab from './character-profile/tabs/ImageTab.svelte';
 
 	interface Props {
@@ -15,33 +14,24 @@
 
 	let { character, onClose, onUpdate }: Props = $props();
 
-	// Reactively parse cardData whenever character changes
-	const cardData = $derived(character?.cardData ? JSON.parse(character.cardData) : {});
-	const data = $derived(cardData.data || {});
 	const baseTags = $derived(character?.tags ? JSON.parse(character.tags) : []);
 
 	// Local display state (updates immediately on save)
 	let displayName = $state<string | null>(null);
 	let displayTags = $state<string[] | null>(null);
-	let displayData = $state<Record<string, any> | null>(null);
 
 	// Reset local state when character changes
 	$effect(() => {
 		if (character) {
 			displayName = null;
 			displayTags = null;
-			displayData = null;
 		}
 	});
 
-	// Use local state if set, otherwise use prop-derived values
-	const currentData = $derived(displayData ?? data);
-
-	// Use local state if set, otherwise use prop-derived values
 	const currentName = $derived(displayName ?? character?.name ?? '');
 	const currentTags = $derived(displayTags ?? baseTags);
 
-	let activeTab = $state<'overview' | 'messages' | 'image'>('overview');
+	let activeTab = $state<'overview' | 'image'>('overview');
 	let imagePreview = $state<string | null>(null);
 	let changingImage = $state(false);
 	let error = $state<string | null>(null);
@@ -98,76 +88,25 @@
 		}
 	}
 
-	async function handleOverviewFieldSave(field: string, value: string) {
+	async function handleDescriptionSave(value: string) {
 		if (!character) return;
 
 		try {
-			// For description, update directly on character
-			if (field === 'description') {
-				const response = await fetch(`/api/characters/${character.id}`, {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ description: value })
-				});
-
-				if (!response.ok) throw new Error('Failed to update description');
-
-				// Update local display state
-				character.description = value;
-			} else {
-				// For cardData fields (scenario, personality, creator_notes), update the cardData
-				const updatedCardData = { ...cardData };
-				if (!updatedCardData.data) updatedCardData.data = {};
-				updatedCardData.data[field] = value;
-
-				const response = await fetch(`/api/characters/${character.id}`, {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ cardData: updatedCardData })
-				});
-
-				if (!response.ok) throw new Error(`Failed to update ${field}`);
-
-				// Update local display state
-				displayData = { ...currentData, [field]: value };
-			}
-
-			success = 'Updated successfully!';
-			setTimeout(() => (success = null), 3000);
-			if (onUpdate) onUpdate();
-		} catch (err) {
-			console.error(`Failed to save ${field}:`, err);
-			error = `Failed to save ${field}`;
-			throw err;
-		}
-	}
-
-	async function handleMessagesFieldSave(field: string, value: string | string[]) {
-		if (!character) return;
-
-		try {
-			// All message fields are in cardData
-			const updatedCardData = { ...cardData };
-			if (!updatedCardData.data) updatedCardData.data = {};
-			updatedCardData.data[field] = value;
-
 			const response = await fetch(`/api/characters/${character.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ cardData: updatedCardData })
+				body: JSON.stringify({ description: value })
 			});
 
-			if (!response.ok) throw new Error(`Failed to update ${field}`);
+			if (!response.ok) throw new Error('Failed to update description');
 
-			// Update local display state
-			displayData = { ...currentData, [field]: value };
-
+			character.description = value;
 			success = 'Updated successfully!';
 			setTimeout(() => (success = null), 3000);
 			if (onUpdate) onUpdate();
 		} catch (err) {
-			console.error(`Failed to save ${field}:`, err);
-			error = `Failed to save ${field}`;
+			console.error('Failed to save description:', err);
+			error = 'Failed to save description';
 			throw err;
 		}
 	}
@@ -270,9 +209,7 @@
 				<!-- Scrollable Tab Content -->
 				<div class="flex-1 overflow-y-auto p-6">
 					{#if activeTab === 'overview'}
-						<OverviewTab {character} data={currentData} onSave={handleOverviewFieldSave} />
-					{:else if activeTab === 'messages'}
-						<MessagesTab data={currentData} onSave={handleMessagesFieldSave} />
+						<OverviewTab {character} onSave={handleDescriptionSave} />
 					{:else if activeTab === 'image'}
 						<ImageTab
 							{character}

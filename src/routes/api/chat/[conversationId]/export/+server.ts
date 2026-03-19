@@ -38,8 +38,7 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 				id: characters.id,
 				name: characters.name,
 				description: characters.description,
-				tags: characters.tags,
-				cardData: characters.cardData
+				tags: characters.tags
 			})
 			.from(characters)
 			.where(eq(characters.id, conversation.characterId))
@@ -52,28 +51,11 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 			.where(eq(messages.conversationId, conversationId))
 			.orderBy(messages.createdAt);
 
-		// Parse card data for additional character info
-		let characterInfo: Record<string, unknown> = {};
-		if (character?.cardData) {
-			try {
-				const cardData = JSON.parse(character.cardData);
-				characterInfo = {
-					name: character.name,
-					description: cardData.data?.description || cardData.description,
-					personality: cardData.data?.personality || cardData.personality,
-					scenario: cardData.data?.scenario || cardData.scenario,
-					first_mes: cardData.data?.first_mes || cardData.first_mes,
-					mes_example: cardData.data?.mes_example || cardData.mes_example,
-					creator_notes: cardData.data?.creator_notes || cardData.creator_notes,
-					tags: character.tags ? JSON.parse(character.tags) : []
-				};
-			} catch {
-				characterInfo = {
-					name: character?.name,
-					description: character?.description
-				};
-			}
-		}
+		const characterInfo = {
+			name: character?.name,
+			description: character?.description,
+			tags: character?.tags ? JSON.parse(character.tags) : []
+		};
 
 		// Format messages for export
 		const exportMessages = conversationMessages.map((msg) => ({

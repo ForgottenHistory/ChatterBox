@@ -87,8 +87,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 						description,
 						tags: JSON.stringify(tags),
 						imageData,
-						thumbnailData,
-						cardData: JSON.stringify(cardData)
+						thumbnailData
 					})
 					.returning();
 

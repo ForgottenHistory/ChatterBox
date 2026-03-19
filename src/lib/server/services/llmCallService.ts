@@ -51,6 +51,12 @@ function getProviderConfig(provider: string): ProviderConfig {
 				baseUrl: 'https://api.featherless.ai/v1',
 				name: 'Featherless'
 			};
+		case 'nanogpt':
+			return {
+				apiKey: env.NANOGPT_API_KEY,
+				baseUrl: 'https://nano-gpt.com/api/v1',
+				name: 'NanoGPT'
+			};
 		case 'openrouter':
 		default:
 			return {
@@ -115,8 +121,8 @@ export async function callLlm({
 		};
 	}
 
-	// Add Featherless-specific parameters
-	if (provider === 'featherless') {
+	// Add extended sampling parameters (Featherless & NanoGPT)
+	if (provider === 'featherless' || provider === 'nanogpt') {
 		requestBody.repetition_penalty = settings.repetitionPenalty ?? 1.0;
 		requestBody.top_k = settings.topK ?? -1;
 		requestBody.min_p = settings.minP ?? 0.0;

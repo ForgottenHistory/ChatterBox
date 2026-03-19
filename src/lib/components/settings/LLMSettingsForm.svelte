@@ -48,6 +48,7 @@
 		>
 			<option value="openrouter">OpenRouter</option>
 			<option value="featherless">Featherless</option>
+			<option value="nanogpt">NanoGPT</option>
 		</select>
 	</div>
 
@@ -86,7 +87,7 @@
 			type="number"
 			bind:value={settings.maxTokens}
 			min="50"
-			max="4000"
+			max="50000"
 			step="50"
 			class="w-full px-4 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
 		/>
@@ -107,8 +108,8 @@
 		<p class="text-xs text-[var(--text-muted)] mt-1">Total tokens available for context</p>
 	</div>
 
-	<!-- Reasoning (OpenRouter only) -->
-	{#if settings.provider === 'openrouter'}
+	<!-- Reasoning (OpenRouter & NanoGPT) -->
+	{#if settings.provider === 'openrouter' || settings.provider === 'nanogpt'}
 		<div class="flex items-center justify-between p-4 bg-[var(--bg-tertiary)] rounded-xl">
 			<div>
 				<label class="block text-sm font-medium text-[var(--text-primary)]">Extended Thinking</label>
@@ -128,10 +129,10 @@
 		</div>
 	{/if}
 
-	<!-- Featherless-specific Settings -->
-	{#if settings.provider === 'featherless'}
+	<!-- Extended Sampling Parameters (Featherless & NanoGPT) -->
+	{#if settings.provider === 'featherless' || settings.provider === 'nanogpt'}
 		<div class="border border-[var(--border-primary)] rounded-xl p-4 space-y-4">
-			<h3 class="font-medium text-[var(--text-primary)]">Featherless Parameters</h3>
+			<h3 class="font-medium text-[var(--text-primary)]">Extended Sampling Parameters</h3>
 
 			<!-- Top K -->
 			<div>
