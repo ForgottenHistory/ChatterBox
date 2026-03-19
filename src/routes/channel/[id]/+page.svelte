@@ -94,7 +94,15 @@
 	// Engagement loop
 	let engagementTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 	let engagementLoopRunning = $state(false);
-	let lastSpeakerId = $state<number | null>(null);
+
+	function getLastSpeakerId(): number | null {
+		for (let i = messages.length - 1; i >= 0; i--) {
+			if (messages[i].role === 'assistant' && messages[i].characterId) {
+				return messages[i].characterId;
+			}
+		}
+		return null;
+	}
 
 	function getCharacterStatus(character: Character): 'online' | 'away' | 'busy' | 'offline' {
 		if (!character.scheduleData) return 'online';
@@ -284,15 +292,22 @@
 			const dtMin = behaviourSettings?.doubleTextChanceMin ?? 10;
 			const dtMax = behaviourSettings?.doubleTextChanceMax ?? 30;
 			const doubleTextChance = dtMin + Math.random() * (dtMax - dtMin);
-			const others = currentActive.filter(id => id !== lastSpeakerId);
+			const lastSpk = getLastSpeakerId();
+			const others = currentActive.filter(id => id !== lastSpk);
 
-			if (lastSpeakerId && currentActive.includes(lastSpeakerId) && others.length > 0) {
-				charId = Math.random() * 100 < doubleTextChance ? lastSpeakerId : others[Math.floor(Math.random() * others.length)];
+			const pickedName = (id: number) => characters.find(c => c.id === id)?.name || id;
+			console.log(`[Engagement Loop] Picking speaker. Last: ${lastSpk ? pickedName(lastSpk) : 'null'}, Active: [${currentActive.map(pickedName).join(', ')}], Others: [${others.map(pickedName).join(', ')}], DT chance: ${doubleTextChance}%`);
+
+			if (others.length > 0 && lastSpk && currentActive.includes(lastSpk)) {
+				charId = Math.random() * 100 < doubleTextChance ? lastSpk : others[Math.floor(Math.random() * others.length)];
+				console.log(`[Engagement Loop] Branch: double-text roll → picked ${pickedName(charId)}`);
+			} else if (others.length > 0) {
+				charId = others[Math.floor(Math.random() * others.length)];
+				console.log(`[Engagement Loop] Branch: others only → picked ${pickedName(charId)}`);
 			} else {
 				charId = currentActive[Math.floor(Math.random() * currentActive.length)];
+				console.log(`[Engagement Loop] Branch: only one active → picked ${pickedName(charId)}`);
 			}
-			lastSpeakerId = charId;
-
 			try {
 				await generateCharacterMessage(charId);
 			} catch (error) {
@@ -364,8 +379,6 @@
 		if (!charId) {
 			charId = active[Math.floor(Math.random() * active.length)];
 		}
-		lastSpeakerId = charId;
-
 		try {
 			await generateCharacterMessage(charId);
 		} catch (error) {
@@ -542,7 +555,11 @@
 	async function loadMessages() {
 		try {
 			const res = await fetch(`/api/channels/${data.channelId}/messages`);
-			if (res.ok) { const r = await res.json(); messages = r.messages || []; await tick(); chatComponent?.scrollToBottom(); setTimeout(() => chatComponent?.scrollToBottom(), 100); setTimeout(() => chatComponent?.scrollToBottom(), 500); }
+			if (res.ok) {
+				const r = await res.json();
+				messages = r.messages || [];
+				await tick(); chatComponent?.scrollToBottom(); setTimeout(() => chatComponent?.scrollToBottom(), 100); setTimeout(() => chatComponent?.scrollToBottom(), 500);
+			}
 		} catch (e) { console.error('Failed to load messages:', e); }
 		finally { loading = false; }
 	}
@@ -607,7 +624,6 @@
 		stopEngagementLoop();
 		engagedCharacters = new Map();
 		engageCooldowns = new Map();
-		lastSpeakerId = null;
 		lastProactiveTime = 0;
 		localStorage.removeItem(ENGAGE_STORAGE_KEY);
 		console.log('[Engagement] All engagement cleared');
