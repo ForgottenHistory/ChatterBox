@@ -114,29 +114,31 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			return lower !== '*ignore*' && lower !== 'ignore';
 		}).join('\n');
 
-		// Post-process: split on newlines, strip "Name: " prefixes, drop other people's lines
+		// Post-process: split on newlines, strip "Name: " prefixes
+		// Stop at the first line that belongs to someone else (everything after is contaminated)
 		const charName = character.name.toLowerCase();
-		const lines = cleanedContent
+		const rawLines = cleanedContent
 			.split(/\n+/)
 			.map((line: string) => line.trim())
-			.filter((line: string) => line.length > 0)
-			.map((line: string) => {
-				// If line has a "Name: content" pattern, check who it belongs to
-				const colonIdx = line.indexOf(':');
-				if (colonIdx > 0 && colonIdx < 50) {
-					const prefix = line.substring(0, colonIdx).trim().toLowerCase();
-					if (prefix === charName) {
-						// Character's own line — strip the name prefix, keep the content
-						return line.substring(colonIdx + 1).trim();
-					}
-					// Someone else's line — mark for removal
-					if (!prefix.includes('http') && !prefix.includes('//')) {
-						return '';
-					}
-				}
-				return line;
-			})
 			.filter((line: string) => line.length > 0);
+
+		const lines: string[] = [];
+		for (const line of rawLines) {
+			const colonIdx = line.indexOf(':');
+			if (colonIdx > 0 && colonIdx < 50) {
+				const prefix = line.substring(0, colonIdx).trim().toLowerCase();
+				if (prefix === charName) {
+					// Character's own line — strip the name prefix
+					lines.push(line.substring(colonIdx + 1).trim());
+					continue;
+				}
+				// Someone else's line — stop processing entirely
+				if (!prefix.includes('http') && !prefix.includes('//')) {
+					break;
+				}
+			}
+			lines.push(line);
+		}
 
 		// If nothing left after filtering, don't create any messages
 		if (lines.length === 0) {

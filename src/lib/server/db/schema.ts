@@ -22,6 +22,8 @@ export const users = sqliteTable('users', {
 	// Double text chance (%)
 	doubleTextChanceMin: integer('double_text_chance_min').notNull().default(10),
 	doubleTextChanceMax: integer('double_text_chance_max').notNull().default(30),
+	// Chance (%) a new character joins per user message when someone is already engaged
+	joinChancePerMessage: integer('join_chance_per_message').notNull().default(1),
 	// Engagement cooldown after disengaging (minutes)
 	engageCooldown: integer('engage_cooldown').notNull().default(5),
 	// Engagement settings - chance to join conversation (%)

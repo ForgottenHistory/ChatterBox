@@ -31,24 +31,72 @@ RULES:
 - Do NOT prefix your messages with your name - just write the message content directly
 - Focus on ONE thing - respond to one person or one topic at a time, not everyone at once
 - You don't need to acknowledge every person in the chat. Real people focus on what catches their attention
-- If you have nothing to say, or the conversation doesn't interest you right now, or you're too busy, reply with just *ignore* and nothing else. This is the ONLY allowed use of asterisks`;
+- If you want to leave the conversation, reply with just *ignore* and nothing else. Use this when: you already said goodbye, the topic bores you, nobody is talking to you, or you have something else to do. Don't use it if someone just asked you a direct question or mentioned your name. This is the ONLY allowed use of asterisks`;
 
-const DEFAULT_PROACTIVE_PROMPT = `You're starting a new topic in the group chat. This is NOT a reply to anything.
+const PROACTIVE_OPENER_STYLES = [
+	{
+		name: 'Vibe check',
+		instruction: 'Share your current mood or state. Examples: "bored out of my mind", "can\'t focus on anything today", "having one of those days"'
+	},
+	{
+		name: 'Life update',
+		instruction: 'Share what just happened or what you\'re doing. Examples: "just got home from the craziest day", "finally done with that thing", "stuck waiting for something"'
+	},
+	{
+		name: 'Hot take',
+		instruction: 'Drop a controversial opinion or random thought. Examples: "okay controversial opinion:", "weird take but", "am I the only one who thinks..."'
+	},
+	{
+		name: 'Question',
+		instruction: 'Ask the group something genuine. Examples: "honest question", "okay help me settle something", "need opinions on this"'
+	},
+	{
+		name: 'Reaction to something',
+		instruction: 'React to something you just saw/read/experienced. Examples: "you won\'t believe what just happened", "okay so weird thing", "this is so random but"'
+	},
+	{
+		name: 'Complaint or rant',
+		instruction: 'Vent about something annoying. Examples: "why is it so hard to...", "I swear if one more person...", "who decided that..."'
+	},
+	{
+		name: 'Excitement',
+		instruction: 'Share something you\'re hyped about. Examples: "lowkey obsessed with this thing", "okay but have you guys seen...", "I just found out about..."'
+	},
+	{
+		name: 'Challenge or game',
+		instruction: 'Start something interactive. Examples: "okay quick: would you rather", "bet you can\'t guess", "unpopular opinion time"'
+	},
+	{
+		name: 'Random thought',
+		instruction: 'Just share whatever\'s on your mind. Examples: "shower thought:", "random but", "been wondering about this"'
+	},
+	{
+		name: 'Reference to current activity',
+		instruction: 'Talk about what you\'re currently doing based on your schedule. Make it conversational, not a status update.'
+	}
+];
+
+function getProactivePrompt(): string {
+	const style = PROACTIVE_OPENER_STYLES[Math.floor(Math.random() * PROACTIVE_OPENER_STYLES.length)];
+
+	return `You're starting a new topic in the group chat. This is NOT a reply to anything.
+
+OPENER STYLE: ${style.name}
+${style.instruction}
 
 YOUR MESSAGE MUST:
 - Be about something COMPLETELY UNRELATED to the recent conversation
-- Be about YOUR life right now - what you're doing, thinking, feeling, seeing
 - Stand on its own - someone reading ONLY this message should understand it
 - Sound like you just picked up your phone with something on your mind
 
-MAKE IT INTERESTING:
+RULES:
 - Use YOUR personality - what would YOU actually text about?
 - Be specific, not vague ("thinking about getting a cat" not "thinking about pets")
 - Show emotion and energy
-- Make it easy for others to respond
 - Keep it short - 1-2 sentences max
 
 Make people WANT to reply.`;
+}
 
 const DEFAULT_IMPERSONATE_PROMPT = `Write the next message as {{user}} in this roleplay chat with {{char}}.
 
@@ -190,7 +238,7 @@ export async function generateChatCompletion(
 
 		// Add proactive instructions if this is a proactive message
 		if (messageType === 'channel-proactive') {
-			systemContent += `\n\n${DEFAULT_PROACTIVE_PROMPT}`;
+			systemContent += `\n\n${getProactivePrompt()}`;
 		}
 
 		if (conversationHistory.length > 0) {

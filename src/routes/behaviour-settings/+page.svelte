@@ -23,6 +23,7 @@
 	let engageChanceOnline = $state(80);
 	let engageChanceAway = $state(30);
 	let engageChanceBusy = $state(10);
+	let joinChancePerMessage = $state(1);
 	let engageCooldown = $state(5);
 	let engageDurationOnline = $state(5);
 	let engageDurationAway = $state(2);
@@ -43,6 +44,7 @@
 				compactHistory = d.compactHistory ?? true;
 				engageRollMin = d.engageRollMin ?? 1;
 				engageRollMax = d.engageRollMax ?? 3;
+				joinChancePerMessage = d.joinChancePerMessage ?? 1;
 				engageCooldown = d.engageCooldown ?? 5;
 				doubleTextChanceMin = d.doubleTextChanceMin ?? 10;
 				doubleTextChanceMax = d.doubleTextChanceMax ?? 30;
@@ -71,7 +73,7 @@
 				body: JSON.stringify({
 					channelFrequencyMin, channelFrequencyMax, useNamePrimer, compactHistory,
 					engageRollMin, engageRollMax,
-					engageCooldown,
+					joinChancePerMessage, engageCooldown,
 					doubleTextChanceMin, doubleTextChanceMax,
 					engageChanceOnline, engageChanceAway, engageChanceBusy,
 					engageDurationOnline, engageDurationAway, engageDurationBusy
@@ -241,6 +243,18 @@
 									<Slider bind:value={engageDurationBusy} min={1} max={30} step={1} unit=" min" accentColor="var(--error)" />
 								</div>
 							</div>
+						</div>
+
+						<!-- Join Chance Per Message -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Join Chance Per Message</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								When characters are already chatting, chance that another character randomly joins each time you send a message.
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{joinChancePerMessage}%</span>
+							</div>
+							<Slider bind:value={joinChancePerMessage} min={0} max={25} step={1} unit="%" />
 						</div>
 
 						<!-- Engagement Cooldown -->

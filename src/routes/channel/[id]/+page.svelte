@@ -30,17 +30,60 @@
 			: ''
 	);
 
-	// Proactive tracking
+	// Proactive tracking — only allow if 30min since last message in chat
 	let lastProactiveTime = $state(0);
-	const PROACTIVE_COOLDOWN = 60 * 60 * 1000;
+	const PROACTIVE_COOLDOWN = 30 * 60 * 1000; // 30 min since last proactive
 	function canProactive(): boolean {
-		return Date.now() - lastProactiveTime >= PROACTIVE_COOLDOWN;
+		// Must be 30min since last proactive
+		if (Date.now() - lastProactiveTime < PROACTIVE_COOLDOWN) return false;
+		// Must be 30min since last message in chat (don't interrupt active conversations)
+		if (messages.length > 0) {
+			const lastMsg = messages[messages.length - 1];
+			const lastMsgTime = new Date(lastMsg.createdAt).getTime();
+			if (Date.now() - lastMsgTime < PROACTIVE_COOLDOWN) return false;
+		}
+		return true;
 	}
 
 	// ─── Engagement System ───
 	const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-	let engagedCharacters = $state<Map<number, number>>(new Map());
-	let engageCooldowns = $state<Map<number, number>>(new Map());
+	const ENGAGE_STORAGE_KEY = `engagement-${data.channelId}`;
+
+	function loadEngagementState(): { engaged: Map<number, number>; cooldowns: Map<number, number>; lastProactive: number } {
+		try {
+			const saved = localStorage.getItem(ENGAGE_STORAGE_KEY);
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				const now = Date.now();
+				// Filter out expired entries
+				const engaged = new Map<number, number>(
+					(parsed.engaged || []).filter(([_, exp]: [number, number]) => now < exp)
+				);
+				const cooldowns = new Map<number, number>(
+					(parsed.cooldowns || []).filter(([_, exp]: [number, number]) => now < exp)
+				);
+				return { engaged, cooldowns, lastProactive: parsed.lastProactive || 0 };
+			}
+		} catch {}
+		return { engaged: new Map(), cooldowns: new Map(), lastProactive: 0 };
+	}
+
+	function saveEngagementState() {
+		try {
+			localStorage.setItem(ENGAGE_STORAGE_KEY, JSON.stringify({
+				engaged: Array.from(engagedCharacters.entries()),
+				cooldowns: Array.from(engageCooldowns.entries()),
+				lastProactive: lastProactiveTime
+			}));
+		} catch {}
+	}
+
+	const initialEngagement = loadEngagementState();
+	let engagedCharacters = $state<Map<number, number>>(initialEngagement.engaged);
+	let engageCooldowns = $state<Map<number, number>>(initialEngagement.cooldowns);
+
+	// Override lastProactiveTime with saved value
+	lastProactiveTime = initialEngagement.lastProactive;
 	let behaviourSettings = $state<any>(null);
 	const PROACTIVE_ENGAGE_BOOST = 1.5;
 	let engageRollCooldown = 0;
@@ -95,6 +138,8 @@
 
 			for (const [charId, expiry] of engagedCharacters) {
 				if (now >= expiry) {
+					const expiredChar = characters.find(c => c.id === charId);
+					console.log(`[Engagement] ${expiredChar?.name || charId} expired (roll cleanup)`);
 					engagedCharacters.delete(charId);
 					if (cooldownMs > 0) engageCooldowns.set(charId, now + cooldownMs);
 				}
@@ -188,7 +233,9 @@
 		let duration = (behaviourSettings.engageDurationOnline ?? 5) * 60 * 1000;
 		if (status === 'away') duration = (behaviourSettings.engageDurationAway ?? 2) * 60 * 1000;
 		if (status === 'busy') duration = (behaviourSettings.engageDurationBusy ?? 1) * 60 * 1000;
-		engagedCharacters.set(charId, Date.now() + duration);
+		const expiry = Date.now() + duration;
+		console.log(`[Engagement] ${char.name} engaged for ${Math.round(duration/1000/60)}min (status: ${status}, expires: ${new Date(expiry).toLocaleTimeString()})`);
+		engagedCharacters.set(charId, expiry);
 		engagedCharacters = new Map(engagedCharacters);
 
 		const proactiveAllowed = allowProactive && canProactive();
@@ -257,6 +304,8 @@
 			const cooldownMs = (behaviourSettings?.engageCooldown ?? 5) * 60 * 1000;
 			for (const [id, expiry] of engagedCharacters) {
 				if (now >= expiry) {
+					const expiredChar = characters.find(c => c.id === id);
+					console.log(`[Engagement] ${expiredChar?.name || id} expired (loop cleanup)`);
 					engagedCharacters.delete(id);
 					if (cooldownMs > 0) engageCooldowns.set(id, now + cooldownMs);
 				}
@@ -284,14 +333,29 @@
 		}
 
 		// If the user mentioned a character by name, prioritize them
+		// Checks full name and first name (for multi-word names like "Rachel Hare")
 		let charId: number | undefined;
 		if (userMessage) {
 			const msgLower = userMessage.toLowerCase();
+			// First pass: check full name match (higher priority)
 			for (const id of active) {
 				const char = characters.find(c => c.id === id);
 				if (char && msgLower.includes(char.name.toLowerCase())) {
 					charId = id;
 					break;
+				}
+			}
+			// Second pass: check first name match
+			if (!charId) {
+				for (const id of active) {
+					const char = characters.find(c => c.id === id);
+					if (char) {
+						const firstName = char.name.split(' ')[0].toLowerCase();
+						if (firstName.length >= 3 && msgLower.includes(firstName)) {
+							charId = id;
+							break;
+						}
+					}
 				}
 			}
 		}
@@ -321,6 +385,59 @@
 		const _running = engagementLoopRunning;
 		if (getActiveEngaged().length >= 2 && !_running && _settings) {
 			startEngagementLoop();
+		}
+	});
+
+	// Persist engagement state to localStorage
+	$effect(() => {
+		const _e = engagedCharacters;
+		const _c = engageCooldowns;
+		saveEngagementState();
+	});
+
+	// ─── Periodic Engagement Roll ───
+	// Periodically checks if new characters should engage (even without user input)
+	let engageRollTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+	function scheduleNextEngagementRoll() {
+		if (!behaviourSettings) return;
+		const minDelay = (behaviourSettings.engageRollMin ?? 1) * 60 * 1000;
+		const maxDelay = (behaviourSettings.engageRollMax ?? 3) * 60 * 1000;
+		const delay = minDelay + Math.random() * (maxDelay - minDelay);
+
+		engageRollTimer = setTimeout(() => {
+			engageRollTimer = null;
+
+			// Only roll if there are characters available to engage
+			const available = characters.filter(c =>
+				!engagedCharacters.has(c.id) &&
+				!engageCooldowns.has(c.id) &&
+				getCharacterStatus(c) !== 'offline'
+			);
+
+			if (available.length > 0) {
+				// Pick one random character and try to engage them
+				const char = available[Math.floor(Math.random() * available.length)];
+				console.log(`[Engagement Roll] Periodic check — trying ${char.name}`);
+				engageCharacter(char.id);
+			}
+
+			// Schedule next roll
+			scheduleNextEngagementRoll();
+		}, delay);
+	}
+
+	function stopEngagementRoll() {
+		if (engageRollTimer) {
+			clearTimeout(engageRollTimer);
+			engageRollTimer = null;
+		}
+	}
+
+	// Start the periodic roll once settings are loaded
+	$effect(() => {
+		if (behaviourSettings && characters.length > 0 && !engageRollTimer) {
+			scheduleNextEngagementRoll();
 		}
 	});
 
@@ -391,7 +508,7 @@
 			// Process next queued generation if any
 			if (generateQueue.length > 0) {
 				const next = generateQueue.shift()!;
-				generateCharacterMessage(next.characterId, next.proactive);
+				await generateCharacterMessage(next.characterId, next.proactive);
 			}
 		}
 	}
@@ -406,7 +523,7 @@
 		const saved = localStorage.getItem('channelMembersSidebar');
 		if (saved !== null) membersSidebarCollapsed = saved === 'collapsed';
 
-		return () => stopEngagementLoop();
+		return () => { stopEngagementLoop(); stopEngagementRoll(); };
 	});
 
 	$effect(() => {
@@ -446,8 +563,9 @@
 				if (getActiveEngaged().length > 0) {
 					// Characters are engaged — guarantee an immediate response and reset timer
 					triggerEngagedResponse(text);
-					// 1% chance to pull another character into the conversation
-					if (Math.random() < 0.01) {
+					// Chance to pull another character into the conversation
+					const joinChance = (behaviourSettings?.joinChancePerMessage ?? 1) / 100;
+					if (joinChance > 0 && Math.random() < joinChance) {
 						const available = characters.filter(c =>
 							!engagedCharacters.has(c.id) &&
 							!engageCooldowns.has(c.id) &&
@@ -490,6 +608,8 @@
 		engagedCharacters = new Map();
 		engageCooldowns = new Map();
 		lastSpeakerId = null;
+		lastProactiveTime = 0;
+		localStorage.removeItem(ENGAGE_STORAGE_KEY);
 		console.log('[Engagement] All engagement cleared');
 	}
 </script>
