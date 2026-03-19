@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { characterMemories, messages, characters } from '../db/schema';
+import { characterMemories, messages, characters, users } from '../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { callLlm } from './llmCallService';
 import { llmSettingsService } from './llmSettingsService';
@@ -101,9 +101,39 @@ export async function extractMemories(
 			)
 			.orderBy(desc(characterMemories.createdAt));
 
+		// Apply memory decay — reduce importance scores on existing memories
+		const [user] = await db.select({ memoryDecayPoints: users.memoryDecayPoints })
+			.from(users).where(eq(users.id, userId)).limit(1);
+		const decayPoints = user?.memoryDecayPoints ?? 2;
+
+		if (decayPoints > 0 && existingMems.length > 0) {
+			for (const mem of existingMems) {
+				const match = mem.content.match(/^\[(\d{1,3})\]\s*(.+)$/);
+				if (match) {
+					const oldScore = parseInt(match[1]);
+					const newScore = Math.max(0, oldScore - decayPoints);
+					if (newScore !== oldScore) {
+						const newContent = `[${newScore}] ${match[2]}`;
+						await db.update(characterMemories)
+							.set({ content: newContent, updatedAt: new Date() })
+							.where(eq(characterMemories.id, mem.id));
+						mem.content = newContent; // update local copy for prompt
+					}
+				}
+			}
+
+			// Remove memories that decayed to 0
+			for (const mem of existingMems) {
+				const match = mem.content.match(/^\[(\d{1,3})\]/);
+				if (match && parseInt(match[1]) <= 0) {
+					await db.delete(characterMemories).where(eq(characterMemories.id, mem.id));
+				}
+			}
+		}
+
 		// Format existing memories for prompt
 		const existingFormatted = existingMems.length > 0
-			? existingMems.map(m => m.content).join('\n')
+			? existingMems.filter(m => !m.content.match(/^\[0\]/)).map(m => m.content).join('\n')
 			: '(none)';
 
 		// Build prompt

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Message } from '$lib/server/db/schema';
 	import { tick } from 'svelte';
+	import { parseEmojis } from '$lib/utils/twemoji';
 
 	interface Props {
 		messages: Message[];
@@ -114,7 +115,7 @@
 </script>
 
 <!-- Messages Area -->
-<div bind:this={messagesContainer} class="flex-1 overflow-y-auto">
+<div bind:this={messagesContainer} use:parseEmojis class="flex-1 overflow-y-auto">
 	{#if loading}
 		<div class="flex items-center justify-center h-full">
 			<div class="w-8 h-8 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin"></div>

@@ -35,6 +35,7 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 	const body = await request.json().catch(() => ({}));
 	let characterId: number | undefined = body.characterId;
 	const proactive: boolean = body.proactive === true;
+	const visibleMessageIds: number[] | undefined = body.visibleMessageIds;
 
 	if (!characterId) {
 		// Pick a random character owned by this user
@@ -67,12 +68,17 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 		return json({ error: 'Character not found' }, { status: 404 });
 	}
 
-	// Get conversation history
-	const conversationHistory = await db
+	// Get conversation history (filtered by visible message IDs if provided)
+	let conversationHistory = await db
 		.select()
 		.from(messages)
 		.where(eq(messages.conversationId, channelId))
 		.orderBy(messages.createdAt);
+
+	if (visibleMessageIds && visibleMessageIds.length > 0) {
+		const visibleSet = new Set(visibleMessageIds);
+		conversationHistory = conversationHistory.filter(m => visibleSet.has(m.id));
+	}
 
 	// Get LLM settings
 	const [settings] = await db

@@ -28,6 +28,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		doubleTextChanceMin: user.doubleTextChanceMin,
 		doubleTextChanceMax: user.doubleTextChanceMax,
 		joinChancePerMessage: user.joinChancePerMessage,
+		memoryDecayPoints: user.memoryDecayPoints,
+		engageContextOffset: user.engageContextOffset,
 		engageCooldown: user.engageCooldown,
 		engageChanceOnline: user.engageChanceOnline,
 		engageChanceAway: user.engageChanceAway,
@@ -80,6 +82,16 @@ export const PUT: RequestHandler = async ({ cookies, request }) => {
 	// Join chance per message
 	if (typeof body.joinChancePerMessage === 'number') {
 		updateData.joinChancePerMessage = Math.max(0, Math.min(100, Math.round(body.joinChancePerMessage)));
+	}
+
+	// Memory decay
+	if (typeof body.memoryDecayPoints === 'number') {
+		updateData.memoryDecayPoints = Math.max(0, Math.min(10, Math.round(body.memoryDecayPoints)));
+	}
+
+	// Engage context offset
+	if (typeof body.engageContextOffset === 'number') {
+		updateData.engageContextOffset = Math.max(0, Math.round(body.engageContextOffset));
 	}
 
 	// Engagement cooldown

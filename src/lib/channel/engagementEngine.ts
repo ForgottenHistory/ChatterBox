@@ -20,12 +20,16 @@ export interface EngagementCallbacks {
 interface PersistedState {
 	engaged: [number, number][];
 	cooldowns: [number, number][];
+	engageStartMsgId: [number, number][];
+	lastDisengageMsgId: [number, number][];
 	lastProactive: number;
 }
 
 export class EngagementEngine {
 	engaged = new Map<number, number>();
 	cooldowns = new Map<number, number>();
+	engageStartMsgId = new Map<number, number>(); // characterId -> message ID when they engaged
+	lastDisengageMsgId = new Map<number, number>(); // characterId -> message ID when they last disengaged
 	lastProactiveTime = 0;
 
 	private callbacks: EngagementCallbacks;
@@ -54,6 +58,8 @@ export class EngagementEngine {
 				const now = Date.now();
 				this.engaged = new Map((parsed.engaged || []).filter(([_, exp]) => now < exp));
 				this.cooldowns = new Map((parsed.cooldowns || []).filter(([_, exp]) => now < exp));
+				this.engageStartMsgId = new Map(parsed.engageStartMsgId || []);
+				this.lastDisengageMsgId = new Map(parsed.lastDisengageMsgId || []);
 				this.lastProactiveTime = parsed.lastProactive || 0;
 			}
 		} catch {}
@@ -64,6 +70,8 @@ export class EngagementEngine {
 			localStorage.setItem(this.storageKey, JSON.stringify({
 				engaged: Array.from(this.engaged.entries()),
 				cooldowns: Array.from(this.cooldowns.entries()),
+				engageStartMsgId: Array.from(this.engageStartMsgId.entries()),
+				lastDisengageMsgId: Array.from(this.lastDisengageMsgId.entries()),
 				lastProactive: this.lastProactiveTime
 			}));
 		} catch {}
@@ -139,6 +147,8 @@ export class EngagementEngine {
 				const name = chars.find(c => c.id === charId)?.name || charId;
 				console.log(`[Engagement] ${name} expired`);
 				this.engaged.delete(charId);
+				const msgs = this.callbacks.getMessages();
+				this.lastDisengageMsgId.set(charId, msgs.length > 0 ? msgs[msgs.length - 1].id : 0);
 				if (cooldownMs > 0) this.cooldowns.set(charId, now + cooldownMs);
 				this.callbacks.triggerMemoryExtraction(charId);
 			}
@@ -173,6 +183,8 @@ export class EngagementEngine {
 				const { chance: baseChance, duration } = this.getChanceDuration(status);
 				if (Math.random() * 100 < baseChance) {
 					this.engaged.set(character.id, now + duration);
+					const msgs = this.callbacks.getMessages();
+					this.engageStartMsgId.set(character.id, msgs.length > 0 ? msgs[msgs.length - 1].id : 0);
 					newlyEngaged.push(character.id);
 					if (newlyEngaged.length >= 2) break;
 				}
@@ -229,6 +241,9 @@ export class EngagementEngine {
 		const expiry = Date.now() + duration;
 		console.log(`[Engagement] ${char.name} engaged for ${Math.round(duration/1000/60)}min (status: ${status})`);
 		this.engaged.set(charId, expiry);
+		const msgs = this.callbacks.getMessages();
+		const lastMsgId = msgs.length > 0 ? msgs[msgs.length - 1].id : 0;
+		this.engageStartMsgId.set(charId, lastMsgId);
 		this.callbacks.onEngagementChanged();
 
 		const useProactive = allowProactive && this.canProactive() && Math.random() < 0.5;
@@ -380,10 +395,59 @@ export class EngagementEngine {
 		}, delay);
 	}
 
+	// ─── Conversation History Window ───
+
+	/**
+	 * Get the message IDs that a character should see.
+	 * Returns: messages up to their last disengage + messages from (engageStart - offset) to now.
+	 * Skips the gap where they were absent.
+	 */
+	getVisibleMessageIds(characterId: number, offset: number): Set<number> {
+		const msgs = this.callbacks.getMessages();
+		if (msgs.length === 0) return new Set();
+
+		const disengageMsgId = this.lastDisengageMsgId.get(characterId);
+		const engageStartMsgId = this.engageStartMsgId.get(characterId);
+
+		// If no tracking data, show all (character has been around the whole time)
+		if (!engageStartMsgId) {
+			return new Set(msgs.map(m => m.id));
+		}
+
+		const visible = new Set<number>();
+
+		// Find engage start position in the array
+		let engageIdx = msgs.findIndex(m => m.id >= engageStartMsgId);
+		if (engageIdx === -1) engageIdx = msgs.length;
+
+		// Apply offset — include some messages before engage start for context
+		const windowStart = Math.max(0, engageIdx - offset);
+
+		if (disengageMsgId) {
+			// Has a previous disengage point — include everything up to it
+			for (const msg of msgs) {
+				if (msg.id <= disengageMsgId) {
+					visible.add(msg.id);
+				} else {
+					break;
+				}
+			}
+		}
+
+		// Include from (engageStart - offset) to end
+		for (let i = windowStart; i < msgs.length; i++) {
+			visible.add(msgs[i].id);
+		}
+
+		return visible;
+	}
+
 	// ─── Handle Ignore ───
 
 	handleIgnore(characterId: number) {
 		this.engaged.delete(characterId);
+		const msgs = this.callbacks.getMessages();
+		this.lastDisengageMsgId.set(characterId, msgs.length > 0 ? msgs[msgs.length - 1].id : 0);
 		const s = this.callbacks.getBehaviourSettings();
 		const cooldownMs = (s?.engageCooldown ?? 5) * 60 * 1000;
 		if (cooldownMs > 0) this.cooldowns.set(characterId, Date.now() + cooldownMs);
@@ -403,12 +467,16 @@ export class EngagementEngine {
 
 	debugClear() {
 		this.stopLoop();
+		// Extract memories for all currently engaged characters before clearing
+		for (const [charId] of this.engaged) {
+			this.callbacks.triggerMemoryExtraction(charId);
+		}
 		this.engaged = new Map();
 		this.cooldowns = new Map();
 		this.lastProactiveTime = 0;
 		localStorage.removeItem(this.storageKey);
 		this.callbacks.onEngagementChanged();
-		console.log('[Engagement] All cleared');
+		console.log('[Engagement] All cleared (memories extracted)');
 	}
 
 	destroy() {

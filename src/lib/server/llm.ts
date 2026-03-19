@@ -250,23 +250,32 @@ export async function generateChatCompletion(
 
 		if (conversationHistory.length > 0) {
 			const historyLines: string[] = [];
-			if (options?.compactHistory !== false) {
-				// Compact: group same-sender messages to save tokens
-				let lastSender = '';
-				for (const msg of conversationHistory) {
-					const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
-					if (name !== lastSender) {
-						historyLines.push(`${name}: ${msg.content}`);
-						lastSender = name;
-					} else {
-						historyLines.push(msg.content);
+			let lastSender = '';
+			let lastTimestamp: Date | null = null;
+			const GAP_THRESHOLD_MS = 30 * 60 * 1000; // 30 min gap
+
+			for (const msg of conversationHistory) {
+				const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
+				const msgTime = new Date(msg.createdAt);
+
+				// Detect time gaps
+				if (lastTimestamp) {
+					const gapMs = msgTime.getTime() - lastTimestamp.getTime();
+					if (gapMs >= GAP_THRESHOLD_MS) {
+						const gapHours = Math.round(gapMs / (60 * 60 * 1000));
+						const gapMins = Math.round(gapMs / (60 * 1000));
+						const gapLabel = gapHours >= 1 ? `${gapHours} hour${gapHours !== 1 ? 's' : ''}` : `${gapMins} minutes`;
+						historyLines.push(`[TIME GAP: ${gapLabel}]`);
+						lastSender = ''; // Reset compaction after gap
 					}
 				}
-			} else {
-				// Verbose: name on every message
-				for (const msg of conversationHistory) {
-					const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
+				lastTimestamp = msgTime;
+
+				if (options?.compactHistory !== false && name === lastSender) {
+					historyLines.push(msg.content);
+				} else {
 					historyLines.push(`${name}: ${msg.content}`);
+					lastSender = name;
 				}
 			}
 			systemContent += `\n\nCONVERSATION HISTORY:\n${historyLines.join('\n')}`;
@@ -278,6 +287,11 @@ export async function generateChatCompletion(
 		formattedMessages.push({
 			role: 'system',
 			content: systemContent
+		});
+		// Some providers require at least one non-system message
+		formattedMessages.push({
+			role: 'user',
+			content: 'Respond in character based on the conversation above.'
 		});
 	} else {
 		// DM chat: system prompt + standard user/assistant role mapping
@@ -304,15 +318,13 @@ export async function generateChatCompletion(
 	logger.info(`Generating ${messageType} completion`, {
 		character: character.name,
 		user: userName,
-		model: settings.model,
 		messageCount: formattedMessages.length
 	});
 
-	// Call LLM service with user settings
+	// Call LLM service with user settings (don't pass model — let it pick from pool)
 	const response = await llmService.createChatCompletion({
 		messages: formattedMessages,
 		userId: settings.userId,
-		model: settings.model,
 		temperature: settings.temperature,
 		maxTokens: settings.maxTokens
 	});
@@ -401,15 +413,13 @@ export async function generateImpersonation(
 	logger.info(`Generating impersonation`, {
 		character: character.name,
 		user: userName,
-		model: settings.model,
 		messageCount: formattedMessages.length
 	});
 
-	// Call LLM service with user settings
+	// Call LLM service with user settings (don't pass model — let it pick from pool)
 	const response = await llmService.createChatCompletion({
 		messages: formattedMessages,
 		userId: settings.userId,
-		model: settings.model,
 		temperature: settings.temperature,
 		maxTokens: settings.maxTokens
 	});

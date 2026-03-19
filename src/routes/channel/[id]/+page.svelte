@@ -90,7 +90,13 @@
 			const response = await fetch(`/api/channels/${data.channelId}/generate`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ characterId: pickedCharacter?.id, proactive })
+				body: JSON.stringify({
+					characterId: pickedCharacter?.id,
+					proactive,
+					visibleMessageIds: pickedCharacter?.id
+						? Array.from(engine.getVisibleMessageIds(pickedCharacter.id, behaviourSettings?.engageContextOffset ?? 10))
+						: undefined
+				})
 			});
 
 			if (response.ok) {

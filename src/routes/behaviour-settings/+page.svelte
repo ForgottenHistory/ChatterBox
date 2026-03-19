@@ -24,6 +24,8 @@
 	let engageChanceAway = $state(30);
 	let engageChanceBusy = $state(10);
 	let joinChancePerMessage = $state(1);
+	let memoryDecayPoints = $state(2);
+	let engageContextOffset = $state(10);
 	let engageCooldown = $state(5);
 	let engageDurationOnline = $state(5);
 	let engageDurationAway = $state(2);
@@ -45,6 +47,8 @@
 				engageRollMin = d.engageRollMin ?? 1;
 				engageRollMax = d.engageRollMax ?? 3;
 				joinChancePerMessage = d.joinChancePerMessage ?? 1;
+				memoryDecayPoints = d.memoryDecayPoints ?? 2;
+				engageContextOffset = d.engageContextOffset ?? 10;
 				engageCooldown = d.engageCooldown ?? 5;
 				doubleTextChanceMin = d.doubleTextChanceMin ?? 10;
 				doubleTextChanceMax = d.doubleTextChanceMax ?? 30;
@@ -73,7 +77,7 @@
 				body: JSON.stringify({
 					channelFrequencyMin, channelFrequencyMax, useNamePrimer, compactHistory,
 					engageRollMin, engageRollMax,
-					joinChancePerMessage, engageCooldown,
+					joinChancePerMessage, memoryDecayPoints, engageContextOffset, engageCooldown,
 					doubleTextChanceMin, doubleTextChanceMax,
 					engageChanceOnline, engageChanceAway, engageChanceBusy,
 					engageDurationOnline, engageDurationAway, engageDurationBusy
@@ -255,6 +259,30 @@
 								<span class="text-sm font-mono text-[var(--accent-primary)]">{joinChancePerMessage}%</span>
 							</div>
 							<Slider bind:value={joinChancePerMessage} min={0} max={25} step={1} unit="%" />
+						</div>
+
+						<!-- Memory Decay -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Memory Decay</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								Points subtracted from each memory's importance score every time new memories are extracted. Memories that reach 0 are automatically removed. Set to 0 to disable decay.
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{memoryDecayPoints} pts</span>
+							</div>
+							<Slider bind:value={memoryDecayPoints} min={0} max={10} step={1} unit=" pts" />
+						</div>
+
+						<!-- Engage Context Offset -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Conversation Context Offset</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								How many messages before a character's engagement to include for context. Characters skip messages from when they were absent.
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{engageContextOffset} messages</span>
+							</div>
+							<Slider bind:value={engageContextOffset} min={0} max={50} step={5} unit=" msgs" />
 						</div>
 
 						<!-- Engagement Cooldown -->

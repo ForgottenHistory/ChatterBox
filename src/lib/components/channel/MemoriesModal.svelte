@@ -22,7 +22,11 @@
 			const res = await fetch(`/api/characters/${characterId}/memories`);
 			if (res.ok) {
 				const data = await res.json();
-				memories = data.memories || [];
+				memories = (data.memories || []).sort((a: any, b: any) => {
+					const scoreA = parseMemory(a.content).score ?? 0;
+					const scoreB = parseMemory(b.content).score ?? 0;
+					return scoreB - scoreA;
+				});
 			}
 		} catch (err) {
 			console.error('Failed to load memories:', err);
@@ -53,6 +57,28 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
+	}
+
+	function parseMemory(content: string): { score: number | null; text: string } {
+		const match = content.match(/^\[(\d{1,3})\]\s*(.+)$/);
+		if (match) {
+			return { score: parseInt(match[1]), text: match[2] };
+		}
+		return { score: null, text: content };
+	}
+
+	function getScoreColor(score: number): string {
+		if (score >= 90) return 'text-[var(--error)]';
+		if (score >= 70) return 'text-[var(--warning)]';
+		if (score >= 50) return 'text-[var(--accent-primary)]';
+		return 'text-[var(--text-muted)]';
+	}
+
+	function getScoreBg(score: number): string {
+		if (score >= 90) return 'bg-[var(--error)]/15';
+		if (score >= 70) return 'bg-[var(--warning)]/15';
+		if (score >= 50) return 'bg-[var(--accent-primary)]/15';
+		return 'bg-[var(--bg-primary)]';
 	}
 </script>
 
@@ -96,14 +122,27 @@
 			{:else}
 				<div class="space-y-2">
 					{#each memories as memory}
+						{@const parsed = parseMemory(memory.content)}
 						<div class="group flex items-start gap-3 p-3 bg-[var(--bg-tertiary)] rounded-lg hover:bg-[var(--bg-primary)] transition">
+							<!-- Score badge -->
+							{#if parsed.score !== null}
+								<div class="flex-shrink-0 w-10 h-10 rounded-lg {getScoreBg(parsed.score)} flex items-center justify-center">
+									<span class="text-sm font-bold {getScoreColor(parsed.score)}">{parsed.score}</span>
+								</div>
+							{/if}
+
 							<div class="flex-1 min-w-0">
-								<p class="text-sm text-[var(--text-primary)]">{memory.content}</p>
-								<div class="flex items-center gap-2 mt-1">
+								<p class="text-sm text-[var(--text-primary)]">{parsed.text}</p>
+								<div class="flex items-center gap-2 mt-1.5">
 									<span class="text-xs text-[var(--text-muted)]">{formatDate(memory.createdAt)}</span>
-									<span class="text-xs text-[var(--text-muted)]">· {memory.source}</span>
+									{#if parsed.score !== null}
+										<span class="text-xs {getScoreColor(parsed.score)}">
+											{parsed.score >= 90 ? 'Critical' : parsed.score >= 70 ? 'Important' : parsed.score >= 50 ? 'Notable' : 'Minor'}
+										</span>
+									{/if}
 								</div>
 							</div>
+
 							<button
 								onclick={() => deleteMemory(memory.id)}
 								class="p-1 text-[var(--text-muted)] hover:text-[var(--error)] transition opacity-0 group-hover:opacity-100 cursor-pointer flex-shrink-0"
