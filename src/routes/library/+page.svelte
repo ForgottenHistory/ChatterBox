@@ -17,15 +17,25 @@
 	let isSearching = $state(false);
 	let searchInputRef = $state<HTMLInputElement | null>(null);
 	let viewMode = $state<'grid' | 'compact'>('grid');
+	let filterSchedule = $state<'all' | 'no-schedule'>('all');
 
-	let filteredCharacters = $derived(
-		searchQuery.trim()
-			? characters.filter(c =>
-				c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				(c.description?.toLowerCase().includes(searchQuery.toLowerCase()))
-			)
-			: characters
-	);
+	let filteredCharacters = $derived.by(() => {
+		let result = characters;
+
+		if (filterSchedule === 'no-schedule') {
+			result = result.filter(c => !c.scheduleData);
+		}
+
+		if (searchQuery.trim()) {
+			const q = searchQuery.toLowerCase();
+			result = result.filter(c =>
+				c.name.toLowerCase().includes(q) ||
+				(c.description?.toLowerCase().includes(q))
+			);
+		}
+
+		return result;
+	});
 
 	function startSearch() {
 		isSearching = true;
@@ -232,6 +242,15 @@
 						</svg>
 					</button>
 				{/if}
+
+				<!-- Schedule Filter -->
+				<select
+					bind:value={filterSchedule}
+					class="px-3 py-1.5 text-sm bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]"
+				>
+					<option value="all">All Characters</option>
+					<option value="no-schedule">No Schedule</option>
+				</select>
 
 				<!-- View Mode Toggle -->
 				<div class="flex items-center bg-[var(--bg-secondary)] rounded-lg p-1 border border-[var(--border-primary)]">

@@ -15,6 +15,22 @@ export const users = sqliteTable('users', {
 	channelFrequencyMin: integer('channel_frequency_min').notNull().default(5), // Min seconds between character messages in channels
 	channelFrequencyMax: integer('channel_frequency_max').notNull().default(30), // Max seconds between character messages in channels
 	useNamePrimer: integer('use_name_primer', { mode: 'boolean' }).notNull().default(true), // Append "CharName: " to prompt to prime the response
+	// Engagement roll interval (minutes)
+	engageRollMin: integer('engage_roll_min').notNull().default(1), // Min minutes between engagement rolls
+	engageRollMax: integer('engage_roll_max').notNull().default(3), // Max minutes between engagement rolls
+	// Double text chance (%)
+	doubleTextChanceMin: integer('double_text_chance_min').notNull().default(10),
+	doubleTextChanceMax: integer('double_text_chance_max').notNull().default(30),
+	// Engagement cooldown after disengaging (minutes)
+	engageCooldown: integer('engage_cooldown').notNull().default(5),
+	// Engagement settings - chance to join conversation (%)
+	engageChanceOnline: integer('engage_chance_online').notNull().default(80),
+	engageChanceAway: integer('engage_chance_away').notNull().default(30),
+	engageChanceBusy: integer('engage_chance_busy').notNull().default(10),
+	// Engagement duration - how long they stay engaged (minutes)
+	engageDurationOnline: integer('engage_duration_online').notNull().default(5),
+	engageDurationAway: integer('engage_duration_away').notNull().default(2),
+	engageDurationBusy: integer('engage_duration_busy').notNull().default(1),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())
@@ -176,6 +192,8 @@ export const characters = sqliteTable('characters', {
 	contextualTags: text('contextual_tags'), // AI chooses from these based on context
 	mainPromptOverride: text('main_prompt_override'), // Override global main prompt
 	negativePromptOverride: text('negative_prompt_override'), // Override global negative prompt
+	// Schedule
+	scheduleData: text('schedule_data'), // JSON weekly schedule { monday: [{start, end, status, activity}], ... }
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())

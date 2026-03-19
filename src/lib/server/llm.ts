@@ -19,7 +19,8 @@ RULES:
 - NO *does something*, NO describing physical movements or expressions
 - Just type words like a real person in a Discord chat
 - Show personality through your words, not through described actions
-- Keep messages concise - 1-3 sentences is typical, occasionally longer if you have something to say
+- Keep messages SHORT. One sentence is often enough. Two is normal. Three is a lot. Match the energy - if someone sends a short message, reply short
+- Don't over-explain or pad your responses. "lol yeah" is a perfectly valid reply
 - Use casual language, contractions, and natural texting style
 - 0-2 emojis max per message (most have none)
 - React to what was actually said, don't monologue
@@ -30,6 +31,23 @@ RULES:
 - Do NOT prefix your messages with your name - just write the message content directly
 - Focus on ONE thing - respond to one person or one topic at a time, not everyone at once
 - You don't need to acknowledge every person in the chat. Real people focus on what catches their attention`;
+
+const DEFAULT_PROACTIVE_PROMPT = `You're starting a new topic in the group chat. This is NOT a reply to anything.
+
+YOUR MESSAGE MUST:
+- Be about something COMPLETELY UNRELATED to the recent conversation
+- Be about YOUR life right now - what you're doing, thinking, feeling, seeing
+- Stand on its own - someone reading ONLY this message should understand it
+- Sound like you just picked up your phone with something on your mind
+
+MAKE IT INTERESTING:
+- Use YOUR personality - what would YOU actually text about?
+- Be specific, not vague ("thinking about getting a cat" not "thinking about pets")
+- Show emotion and energy
+- Make it easy for others to respond
+- Keep it short - 1-2 sentences max
+
+Make people WANT to reply.`;
 
 const DEFAULT_IMPERSONATE_PROMPT = `Write the next message as {{user}} in this roleplay chat with {{char}}.
 
@@ -98,7 +116,7 @@ export async function generateChatCompletion(
 	character: Character,
 	settings: LlmSettings,
 	messageType: string = 'chat',
-	options?: { useNamePrimer?: boolean }
+	options?: { useNamePrimer?: boolean; proactive?: boolean }
 ): Promise<ChatCompletionResult> {
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
@@ -115,7 +133,7 @@ export async function generateChatCompletion(
 	};
 
 	// Replace variables in template
-	const finalSystemPrompt = replaceTemplateVariables(basePrompt, templateVariables);
+	let finalSystemPrompt = replaceTemplateVariables(basePrompt, templateVariables);
 
 	// Add lorebook/world info context based on conversation keywords
 	const lorebookContext = await lorebookService.buildLorebookContext(
@@ -131,8 +149,35 @@ export async function generateChatCompletion(
 	const formattedMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
 	// For channels, append conversation history with sender names to the system prompt
-	if (messageType === 'channel') {
+	if (messageType === 'channel' || messageType === 'channel-proactive') {
 		let systemContent = finalSystemPrompt.trim();
+
+		// Add schedule/activity context if available
+		if (character.scheduleData) {
+			try {
+				const scheduleObj = JSON.parse(character.scheduleData);
+				const schedule = scheduleObj.schedule || scheduleObj;
+				const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+				const now = new Date();
+				const day = DAYS[now.getDay() === 0 ? 6 : now.getDay() - 1];
+				const blocks = schedule[day];
+				if (blocks) {
+					const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+					for (const block of blocks) {
+						if (timeStr >= block.start && timeStr < block.end) {
+							systemContent += `\n\nYour current status: ${block.status.toUpperCase()}. You are currently: ${block.activity}`;
+							break;
+						}
+					}
+				}
+			} catch {}
+		}
+
+		// Add proactive instructions if this is a proactive message
+		if (messageType === 'channel-proactive') {
+			systemContent += `\n\n${DEFAULT_PROACTIVE_PROMPT}`;
+		}
+
 		if (conversationHistory.length > 0) {
 			const historyLines = conversationHistory.map((msg) => {
 				const name = msg.senderName || (msg.role === 'user' ? userName : character.name);

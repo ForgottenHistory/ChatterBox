@@ -1,5 +1,5 @@
 <script lang="ts">
-	type TabType = 'overview' | 'image';
+	type TabType = 'overview' | 'schedule' | 'image';
 
 	interface Props {
 		activeTab: TabType;
@@ -10,6 +10,7 @@
 
 	const tabs: { id: TabType; label: string }[] = [
 		{ id: 'overview', label: 'Overview' },
+		{ id: 'schedule', label: 'Schedule' },
 		{ id: 'image', label: 'Edit Image' }
 	];
 </script>

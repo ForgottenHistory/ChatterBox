@@ -4,6 +4,7 @@
 	import ProfileHeader from './character-profile/ProfileHeader.svelte';
 	import ProfileTabs from './character-profile/ProfileTabs.svelte';
 	import OverviewTab from './character-profile/tabs/OverviewTab.svelte';
+	import ScheduleTab from './character-profile/tabs/ScheduleTab.svelte';
 	import ImageTab from './character-profile/tabs/ImageTab.svelte';
 
 	interface Props {
@@ -31,7 +32,7 @@
 	const currentName = $derived(displayName ?? character?.name ?? '');
 	const currentTags = $derived(displayTags ?? baseTags);
 
-	let activeTab = $state<'overview' | 'image'>('overview');
+	let activeTab = $state<'overview' | 'schedule' | 'image'>('overview');
 	let imagePreview = $state<string | null>(null);
 	let changingImage = $state(false);
 	let error = $state<string | null>(null);
@@ -172,11 +173,6 @@
 {#if character}
 	<div
 		class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-		onclick={(e) => {
-			if (e.target === e.currentTarget) {
-				onClose();
-			}
-		}}
 		role="dialog"
 		aria-modal="true"
 	>
@@ -210,6 +206,8 @@
 				<div class="flex-1 overflow-y-auto p-6">
 					{#if activeTab === 'overview'}
 						<OverviewTab {character} onSave={handleDescriptionSave} />
+					{:else if activeTab === 'schedule'}
+						<ScheduleTab {character} {onUpdate} />
 					{:else if activeTab === 'image'}
 						<ImageTab
 							{character}

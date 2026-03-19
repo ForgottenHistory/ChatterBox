@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import MainLayout from '$lib/components/MainLayout.svelte';
 	import RangeSlider from '$lib/components/ui/RangeSlider.svelte';
+	import Slider from '$lib/components/ui/Slider.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -13,6 +14,19 @@
 	let channelFrequencyMax = $state(30);
 	let useNamePrimer = $state(true);
 
+	// Engagement settings
+	let engageRollMin = $state(1);
+	let engageRollMax = $state(3);
+	let doubleTextChanceMin = $state(10);
+	let doubleTextChanceMax = $state(30);
+	let engageChanceOnline = $state(80);
+	let engageChanceAway = $state(30);
+	let engageChanceBusy = $state(10);
+	let engageCooldown = $state(5);
+	let engageDurationOnline = $state(5);
+	let engageDurationAway = $state(2);
+	let engageDurationBusy = $state(1);
+
 	$effect(() => {
 		loadSettings();
 	});
@@ -21,10 +35,21 @@
 		try {
 			const res = await fetch('/api/behaviour-settings');
 			if (res.ok) {
-				const data = await res.json();
-				channelFrequencyMin = data.channelFrequencyMin ?? 5;
-				useNamePrimer = data.useNamePrimer ?? true;
-				channelFrequencyMax = data.channelFrequencyMax ?? 30;
+				const d = await res.json();
+				channelFrequencyMin = d.channelFrequencyMin ?? 5;
+				channelFrequencyMax = d.channelFrequencyMax ?? 30;
+				useNamePrimer = d.useNamePrimer ?? true;
+				engageRollMin = d.engageRollMin ?? 1;
+				engageRollMax = d.engageRollMax ?? 3;
+				engageCooldown = d.engageCooldown ?? 5;
+				doubleTextChanceMin = d.doubleTextChanceMin ?? 10;
+				doubleTextChanceMax = d.doubleTextChanceMax ?? 30;
+				engageChanceOnline = d.engageChanceOnline ?? 80;
+				engageChanceAway = d.engageChanceAway ?? 30;
+				engageChanceBusy = d.engageChanceBusy ?? 10;
+				engageDurationOnline = d.engageDurationOnline ?? 5;
+				engageDurationAway = d.engageDurationAway ?? 2;
+				engageDurationBusy = d.engageDurationBusy ?? 1;
 			}
 		} catch (err) {
 			console.error('Failed to load settings:', err);
@@ -41,13 +66,17 @@
 			const res = await fetch('/api/behaviour-settings', {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ channelFrequencyMin, channelFrequencyMax, useNamePrimer })
+				body: JSON.stringify({
+					channelFrequencyMin, channelFrequencyMax, useNamePrimer,
+					engageRollMin, engageRollMax,
+					engageCooldown,
+					doubleTextChanceMin, doubleTextChanceMax,
+					engageChanceOnline, engageChanceAway, engageChanceBusy,
+					engageDurationOnline, engageDurationAway, engageDurationBusy
+				})
 			});
 
 			if (res.ok) {
-				const result = await res.json();
-				channelFrequencyMin = result.channelFrequencyMin;
-				channelFrequencyMax = result.channelFrequencyMax;
 				message = { type: 'success', text: 'Settings saved successfully!' };
 			} else {
 				const err = await res.json();
@@ -98,30 +127,130 @@
 						<div>
 							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Channel Chat Frequency</h2>
 							<p class="text-sm text-[var(--text-muted)] mb-6">
-								How often characters respond in text channels. A random delay between the min and max is chosen each time a character replies.
+								Delay between character messages when multiple characters are engaged in conversation.
+							</p>
+							<RangeSlider
+								min={1}
+								max={120}
+								step={1}
+								bind:valueLow={channelFrequencyMin}
+								bind:valueHigh={channelFrequencyMax}
+								unit="s"
+							/>
+						</div>
+
+						<!-- Double Text Chance -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Double Text Chance</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								Probability that the same character sends another message in a row instead of passing to someone else. A random value in this range is rolled each time.
+							</p>
+							<RangeSlider
+								min={0}
+								max={100}
+								step={5}
+								bind:valueLow={doubleTextChanceMin}
+								bind:valueHigh={doubleTextChanceMax}
+								unit="%"
+							/>
+						</div>
+
+						<!-- Engagement Roll Interval -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Engagement Roll Interval</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								How often the system checks if new characters should join the conversation. A random interval between min and max is chosen each time.
+							</p>
+							<RangeSlider
+								min={1}
+								max={15}
+								step={1}
+								bind:valueLow={engageRollMin}
+								bind:valueHigh={engageRollMax}
+								unit=" min"
+							/>
+						</div>
+
+						<!-- Engagement Chance -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Engagement Chance</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								Probability a character joins the conversation when you send a message, based on their schedule status.
 							</p>
 
-							<div class="space-y-6">
-								<RangeSlider
-									min={1}
-									max={120}
-									step={1}
-									bind:valueLow={channelFrequencyMin}
-									bind:valueHigh={channelFrequencyMax}
-									unit="s"
-								/>
-
-								<!-- Preview -->
-								<div class="p-4 bg-[var(--bg-primary)] rounded-lg border border-[var(--border-primary)]">
-									<p class="text-sm text-[var(--text-secondary)]">
-										Characters will wait between
-										<span class="font-semibold text-[var(--accent-primary)]">{channelFrequencyMin}</span>
-										and
-										<span class="font-semibold text-[var(--accent-primary)]">{channelFrequencyMax}</span>
-										seconds before responding in a channel.
-									</p>
+							<div class="space-y-5">
+								<div>
+									<div class="flex items-center gap-2 mb-1">
+										<div class="w-2.5 h-2.5 rounded-full bg-[var(--success)]"></div>
+										<span class="text-sm font-medium text-[var(--text-secondary)]">Online</span>
+										<span class="text-sm font-mono text-[var(--accent-primary)] ml-auto">{engageChanceOnline}%</span>
+									</div>
+									<Slider bind:value={engageChanceOnline} min={0} max={100} step={5} unit="%" accentColor="var(--success)" />
+								</div>
+								<div>
+									<div class="flex items-center gap-2 mb-1">
+										<div class="w-2.5 h-2.5 rounded-full bg-[var(--warning)]"></div>
+										<span class="text-sm font-medium text-[var(--text-secondary)]">Away</span>
+										<span class="text-sm font-mono text-[var(--accent-primary)] ml-auto">{engageChanceAway}%</span>
+									</div>
+									<Slider bind:value={engageChanceAway} min={0} max={100} step={5} unit="%" accentColor="var(--warning)" />
+								</div>
+								<div>
+									<div class="flex items-center gap-2 mb-1">
+										<div class="w-2.5 h-2.5 rounded-full bg-[var(--error)]"></div>
+										<span class="text-sm font-medium text-[var(--text-secondary)]">Busy</span>
+										<span class="text-sm font-mono text-[var(--accent-primary)] ml-auto">{engageChanceBusy}%</span>
+									</div>
+									<Slider bind:value={engageChanceBusy} min={0} max={100} step={5} unit="%" accentColor="var(--error)" />
 								</div>
 							</div>
+						</div>
+
+						<!-- Engagement Duration -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Engagement Duration</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								How long a character stays active in the conversation before disengaging, based on their schedule status.
+							</p>
+
+							<div class="space-y-5">
+								<div>
+									<div class="flex items-center gap-2 mb-1">
+										<div class="w-2.5 h-2.5 rounded-full bg-[var(--success)]"></div>
+										<span class="text-sm font-medium text-[var(--text-secondary)]">Online</span>
+										<span class="text-sm font-mono text-[var(--accent-primary)] ml-auto">{engageDurationOnline} min</span>
+									</div>
+									<Slider bind:value={engageDurationOnline} min={1} max={30} step={1} unit=" min" accentColor="var(--success)" />
+								</div>
+								<div>
+									<div class="flex items-center gap-2 mb-1">
+										<div class="w-2.5 h-2.5 rounded-full bg-[var(--warning)]"></div>
+										<span class="text-sm font-medium text-[var(--text-secondary)]">Away</span>
+										<span class="text-sm font-mono text-[var(--accent-primary)] ml-auto">{engageDurationAway} min</span>
+									</div>
+									<Slider bind:value={engageDurationAway} min={1} max={30} step={1} unit=" min" accentColor="var(--warning)" />
+								</div>
+								<div>
+									<div class="flex items-center gap-2 mb-1">
+										<div class="w-2.5 h-2.5 rounded-full bg-[var(--error)]"></div>
+										<span class="text-sm font-medium text-[var(--text-secondary)]">Busy</span>
+										<span class="text-sm font-mono text-[var(--accent-primary)] ml-auto">{engageDurationBusy} min</span>
+									</div>
+									<Slider bind:value={engageDurationBusy} min={1} max={30} step={1} unit=" min" accentColor="var(--error)" />
+								</div>
+							</div>
+						</div>
+
+						<!-- Engagement Cooldown -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Engagement Cooldown</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								After a character disengages, how long before they can be engaged again.
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{engageCooldown} min</span>
+							</div>
+							<Slider bind:value={engageCooldown} min={0} max={30} step={1} unit=" min" />
 						</div>
 
 						<!-- Name Primer -->

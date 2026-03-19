@@ -31,9 +31,10 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 		return json({ error: 'Channel not found' }, { status: 404 });
 	}
 
-	// Get characterId from request body, or pick a random one
+	// Get options from request body
 	const body = await request.json().catch(() => ({}));
 	let characterId: number | undefined = body.characterId;
+	const proactive: boolean = body.proactive === true;
 
 	if (!characterId) {
 		// Pick a random character owned by this user
@@ -96,8 +97,8 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			conversationHistory,
 			character,
 			settings,
-			'channel',
-			{ useNamePrimer: user?.useNamePrimer ?? true }
+			proactive ? 'channel-proactive' : 'channel',
+			{ useNamePrimer: user?.useNamePrimer ?? true, proactive }
 		);
 
 		// Post-process: split on newlines, strip "Name: " prefixes, drop other people's lines
