@@ -163,9 +163,13 @@ export async function generateChatCompletion(
 				const blocks = schedule[day];
 				if (blocks) {
 					const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+					const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+					const timeDisplay = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+					const dayDisplay = dayNames[now.getDay()];
+
 					for (const block of blocks) {
 						if (timeStr >= block.start && timeStr < block.end) {
-							systemContent += `\n\nYour current status: ${block.status.toUpperCase()}. You are currently: ${block.activity}`;
+							systemContent += `\n\nCurrent time: ${timeDisplay}, ${dayDisplay}. Your status: ${block.status.toUpperCase()}. You are currently: ${block.activity}`;
 							break;
 						}
 					}

@@ -18,6 +18,7 @@
 	let { messages = $bindable(), loading, channelName, channelDescription, channelId, typingCharacter, sending, avatarStyle, onSend, onShowReasoning }: Props = $props();
 
 	let input = $state('');
+	let inputRef = $state<HTMLTextAreaElement | undefined>();
 	let messagesContainer = $state<HTMLDivElement | undefined>();
 
 	// Edit state
@@ -41,6 +42,10 @@
 			e.preventDefault();
 			handleSend();
 		}
+	}
+
+	export function focusInput() {
+		inputRef?.focus();
 	}
 
 	function handleSend() {
@@ -200,6 +205,7 @@
 <div class="px-4 pb-4 pt-2 flex-shrink-0">
 	<div class="flex items-center gap-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg px-4 py-3">
 		<textarea
+			bind:this={inputRef}
 			bind:value={input}
 			onkeydown={handleKeydown}
 			placeholder="Message #{channelName}"

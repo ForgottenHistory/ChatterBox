@@ -88,47 +88,54 @@
 		rollDepth++;
 		engageRollCooldown = Date.now() + ENGAGE_ROLL_COOLDOWN_MS;
 
-		const now = Date.now();
-		const newlyEngaged: number[] = [];
-		const cooldownMs = (behaviourSettings.engageCooldown ?? 5) * 60 * 1000;
+		try {
+			const now = Date.now();
+			const newlyEngaged: number[] = [];
+			const cooldownMs = (behaviourSettings.engageCooldown ?? 5) * 60 * 1000;
 
-		for (const [charId, expiry] of engagedCharacters) {
-			if (now >= expiry) {
-				engagedCharacters.delete(charId);
-				if (cooldownMs > 0) engageCooldowns.set(charId, now + cooldownMs);
+			for (const [charId, expiry] of engagedCharacters) {
+				if (now >= expiry) {
+					engagedCharacters.delete(charId);
+					if (cooldownMs > 0) engageCooldowns.set(charId, now + cooldownMs);
+				}
 			}
-		}
-		for (const [charId, expiry] of engageCooldowns) {
-			if (now >= expiry) engageCooldowns.delete(charId);
-		}
-
-		for (const character of characters) {
-			if (character.id === excludeCharacterId) continue;
-			if (engagedCharacters.has(character.id)) continue;
-			if (engageCooldowns.has(character.id)) continue;
-			const status = getCharacterStatus(character);
-			if (status === 'offline') continue;
-
-			let chance = 0, duration = 0;
-			if (status === 'online') { chance = behaviourSettings.engageChanceOnline ?? 80; duration = (behaviourSettings.engageDurationOnline ?? 5) * 60 * 1000; }
-			else if (status === 'away') { chance = behaviourSettings.engageChanceAway ?? 30; duration = (behaviourSettings.engageDurationAway ?? 2) * 60 * 1000; }
-			else if (status === 'busy') { chance = behaviourSettings.engageChanceBusy ?? 10; duration = (behaviourSettings.engageDurationBusy ?? 1) * 60 * 1000; }
-
-			chance = Math.min(100, chance * boost);
-			if (Math.random() * 100 < chance) {
-				engagedCharacters.set(character.id, now + duration);
-				newlyEngaged.push(character.id);
-				if (newlyEngaged.length >= 2) break;
+			for (const [charId, expiry] of engageCooldowns) {
+				if (now >= expiry) engageCooldowns.delete(charId);
 			}
-		}
 
-		if (newlyEngaged.length > 0) {
-			engagedCharacters = new Map(engagedCharacters);
-			for (const charId of newlyEngaged) {
-				await generateCharacterMessage(charId);
+			for (const character of characters) {
+				if (character.id === excludeCharacterId) continue;
+				if (engagedCharacters.has(character.id)) continue;
+				if (engageCooldowns.has(character.id)) continue;
+				const status = getCharacterStatus(character);
+				if (status === 'offline') continue;
+
+				let chance = 0, duration = 0;
+				if (status === 'online') { chance = behaviourSettings.engageChanceOnline ?? 80; duration = (behaviourSettings.engageDurationOnline ?? 5) * 60 * 1000; }
+				else if (status === 'away') { chance = behaviourSettings.engageChanceAway ?? 30; duration = (behaviourSettings.engageDurationAway ?? 2) * 60 * 1000; }
+				else if (status === 'busy') { chance = behaviourSettings.engageChanceBusy ?? 10; duration = (behaviourSettings.engageDurationBusy ?? 1) * 60 * 1000; }
+
+				chance = Math.min(100, chance * boost);
+				if (Math.random() * 100 < chance) {
+					engagedCharacters.set(character.id, now + duration);
+					newlyEngaged.push(character.id);
+					if (newlyEngaged.length >= 2) break;
+				}
 			}
+
+			if (newlyEngaged.length > 0) {
+				engagedCharacters = new Map(engagedCharacters);
+				for (const charId of newlyEngaged) {
+					try {
+						await generateCharacterMessage(charId);
+					} catch (error) {
+						console.error('[Engagement] First message failed for', charId, error);
+					}
+				}
+			}
+		} finally {
+			rollDepth--;
 		}
-		rollDepth--;
 	}
 
 	async function rollEngagementOnce(excludeCharacterId: number) {
@@ -136,35 +143,42 @@
 		if (rollDepth >= MAX_ROLL_DEPTH) { console.warn('[Engagement] One-shot blocked - max depth'); return; }
 		rollDepth++;
 
-		const now = Date.now();
-		const newlyEngaged: number[] = [];
-		for (const character of characters) {
-			if (character.id === excludeCharacterId) continue;
-			if (engagedCharacters.has(character.id)) continue;
-			if (engageCooldowns.has(character.id) && now < (engageCooldowns.get(character.id) ?? 0)) continue;
-			const status = getCharacterStatus(character);
-			if (status === 'offline') continue;
+		try {
+			const now = Date.now();
+			const newlyEngaged: number[] = [];
+			for (const character of characters) {
+				if (character.id === excludeCharacterId) continue;
+				if (engagedCharacters.has(character.id)) continue;
+				if (engageCooldowns.has(character.id) && now < (engageCooldowns.get(character.id) ?? 0)) continue;
+				const status = getCharacterStatus(character);
+				if (status === 'offline') continue;
 
-			let chance = 0, duration = 0;
-			if (status === 'online') { chance = behaviourSettings.engageChanceOnline ?? 80; duration = (behaviourSettings.engageDurationOnline ?? 5) * 60 * 1000; }
-			else if (status === 'away') { chance = behaviourSettings.engageChanceAway ?? 30; duration = (behaviourSettings.engageDurationAway ?? 2) * 60 * 1000; }
-			else if (status === 'busy') { chance = behaviourSettings.engageChanceBusy ?? 10; duration = (behaviourSettings.engageDurationBusy ?? 1) * 60 * 1000; }
+				let chance = 0, duration = 0;
+				if (status === 'online') { chance = behaviourSettings.engageChanceOnline ?? 80; duration = (behaviourSettings.engageDurationOnline ?? 5) * 60 * 1000; }
+				else if (status === 'away') { chance = behaviourSettings.engageChanceAway ?? 30; duration = (behaviourSettings.engageDurationAway ?? 2) * 60 * 1000; }
+				else if (status === 'busy') { chance = behaviourSettings.engageChanceBusy ?? 10; duration = (behaviourSettings.engageDurationBusy ?? 1) * 60 * 1000; }
 
-			chance = Math.min(100, chance * PROACTIVE_ENGAGE_BOOST);
-			if (Math.random() * 100 < chance) {
-				engagedCharacters.set(character.id, now + duration);
-				newlyEngaged.push(character.id);
-				break;
+				chance = Math.min(100, chance * PROACTIVE_ENGAGE_BOOST);
+				if (Math.random() * 100 < chance) {
+					engagedCharacters.set(character.id, now + duration);
+					newlyEngaged.push(character.id);
+					break;
+				}
 			}
-		}
 
-		if (newlyEngaged.length > 0) {
-			engagedCharacters = new Map(engagedCharacters);
-			for (const charId of newlyEngaged) {
-				await generateCharacterMessage(charId);
+			if (newlyEngaged.length > 0) {
+				engagedCharacters = new Map(engagedCharacters);
+				for (const charId of newlyEngaged) {
+					try {
+						await generateCharacterMessage(charId);
+					} catch (error) {
+						console.error('[Engagement] One-shot first message failed for', charId, error);
+					}
+				}
 			}
+		} finally {
+			rollDepth--;
 		}
-		rollDepth--;
 	}
 
 	async function engageCharacter(charId: number, allowProactive = true) {
@@ -177,10 +191,16 @@
 		engagedCharacters.set(charId, Date.now() + duration);
 		engagedCharacters = new Map(engagedCharacters);
 
-		const useProactive = allowProactive && canProactive() && Math.random() < 0.5;
-		await generateCharacterMessage(charId, useProactive);
+		const proactiveAllowed = allowProactive && canProactive();
+		const proactiveRoll = Math.random() < 0.5;
+		const useProactive = proactiveAllowed && proactiveRoll;
+		console.log(`[Engagement] Character ${char.name} engaged. Proactive: allowed=${proactiveAllowed}, roll=${proactiveRoll}, using=${useProactive}`);
 
-		if (useProactive) {
+		const messagesBefore = messages.length;
+		await generateCharacterMessage(charId, useProactive);
+		const succeeded = messages.length > messagesBefore;
+
+		if (useProactive && succeeded) {
 			lastProactiveTime = Date.now();
 			await rollEngagementOnce(charId);
 		}
@@ -201,7 +221,7 @@
 	function scheduleNextEngagedMessage() {
 		if (!engagementLoopRunning || !behaviourSettings) return;
 		const active = getActiveEngaged();
-		if (active.length === 0) { stopEngagementLoop(); return; }
+		if (active.length < 2) { stopEngagementLoop(); return; }
 
 		const minDelay = (behaviourSettings.channelFrequencyMin ?? 5) * 1000;
 		const maxDelay = (behaviourSettings.channelFrequencyMax ?? 30) * 1000;
@@ -210,7 +230,7 @@
 		engagementTimer = setTimeout(async () => {
 			engagementTimer = null;
 			const currentActive = getActiveEngaged();
-			if (currentActive.length === 0) { stopEngagementLoop(); return; }
+			if (currentActive.length < 2) { stopEngagementLoop(); return; }
 
 			// Pick speaker — double text logic
 			let charId: number;
@@ -226,7 +246,11 @@
 			}
 			lastSpeakerId = charId;
 
-			await generateCharacterMessage(charId);
+			try {
+				await generateCharacterMessage(charId);
+			} catch (error) {
+				console.error('[Engagement] Loop generation failed:', error);
+			}
 
 			// Clean expired → cooldown
 			const now = Date.now();
@@ -240,7 +264,7 @@
 			engagedCharacters = new Map(engagedCharacters);
 			engageCooldowns = new Map(engageCooldowns);
 
-			if (engagementLoopRunning && getActiveEngaged().length > 0) {
+			if (engagementLoopRunning && getActiveEngaged().length >= 2) {
 				scheduleNextEngagedMessage();
 			} else {
 				stopEngagementLoop();
@@ -248,11 +272,39 @@
 		}, delay);
 	}
 
+	// Reset the loop timer and trigger an immediate response from a random engaged character
+	async function triggerEngagedResponse() {
+		const active = getActiveEngaged();
+		if (active.length === 0) return;
+
+		// Cancel current timer
+		if (engagementTimer) {
+			clearTimeout(engagementTimer);
+			engagementTimer = null;
+		}
+
+		// Pick a random engaged character to respond
+		const charId = active[Math.floor(Math.random() * active.length)];
+		lastSpeakerId = charId;
+
+		try {
+			await generateCharacterMessage(charId);
+		} catch (error) {
+			console.error('[Engagement] Triggered response failed:', error);
+		}
+
+		// Restart the loop timer fresh only if 2+ engaged
+		if (getActiveEngaged().length >= 2) {
+			if (!engagementLoopRunning) startEngagementLoop();
+			else scheduleNextEngagedMessage();
+		}
+	}
+
 	$effect(() => {
 		const _engaged = engagedCharacters;
 		const _settings = behaviourSettings;
 		const _running = engagementLoopRunning;
-		if (getActiveEngaged().length > 0 && !_running && _settings) {
+		if (getActiveEngaged().length >= 2 && !_running && _settings) {
 			startEngagementLoop();
 		}
 	});
@@ -267,6 +319,9 @@
 		const pickedCharacter = characterId
 			? characters.find(c => c.id === characterId) || null
 			: characters.length > 0 ? characters[Math.floor(Math.random() * characters.length)] : null;
+
+		// Short delay before showing typing indicator for natural feel
+		await sleep(800 + Math.random() * 1200);
 		typingCharacter = pickedCharacter?.name || 'Someone';
 		await tick();
 		chatComponent?.scrollToBottom();
@@ -348,10 +403,17 @@
 				messages = [...messages, r.message];
 				await tick();
 				chatComponent?.scrollToBottom();
-				if (getActiveEngaged().length === 0) rollEngagement();
+
+				if (getActiveEngaged().length > 0) {
+					// Characters are engaged — guarantee an immediate response and reset timer
+					triggerEngagedResponse();
+				} else {
+					// No one engaged — roll for new engagement
+					rollEngagement();
+				}
 			}
 		} catch (e) { console.error('Failed to send:', e); }
-		finally { sending = false; }
+		finally { sending = false; setTimeout(() => chatComponent?.focusInput(), 0); }
 	}
 
 	function exportChat() {
