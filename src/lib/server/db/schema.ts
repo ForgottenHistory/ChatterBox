@@ -247,13 +247,27 @@ export const conversations = sqliteTable('conversations', {
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),
 	characterId: integer('character_id')
-		.notNull()
-		.references(() => characters.id, { onDelete: 'cascade' }),
-	name: text('name'), // Branch name (null for main conversation)
+		.references(() => characters.id, { onDelete: 'cascade' }), // Legacy / convenience for DMs, nullable for channels
+	conversationType: text('conversation_type').notNull().default('dm'), // 'dm' or 'channel'
+	name: text('name'), // Channel name or branch name
+	description: text('description'), // Channel description
 	parentConversationId: integer('parent_conversation_id'), // ID of conversation this branched from
 	branchPointMessageId: integer('branch_point_message_id'), // Message ID where branch was created
-	isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), // Currently active branch for this character
+	isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), // Currently active branch
 	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date())
+});
+
+export const conversationCharacters = sqliteTable('conversation_characters', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	conversationId: integer('conversation_id')
+		.notNull()
+		.references(() => conversations.id, { onDelete: 'cascade' }),
+	characterId: integer('character_id')
+		.notNull()
+		.references(() => characters.id, { onDelete: 'cascade' }),
+	addedAt: integer('added_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())
 });
@@ -263,6 +277,8 @@ export const messages = sqliteTable('messages', {
 	conversationId: integer('conversation_id')
 		.notNull()
 		.references(() => conversations.id, { onDelete: 'cascade' }),
+	characterId: integer('character_id')
+		.references(() => characters.id, { onDelete: 'set null' }), // Which character sent this (null for user messages)
 	role: text('role').notNull(), // 'user' or 'assistant'
 	content: text('content').notNull(),
 	swipes: text('swipes'), // JSON array of alternative content variants
@@ -271,6 +287,26 @@ export const messages = sqliteTable('messages', {
 	senderAvatar: text('sender_avatar'), // Avatar data at time of message
 	reasoning: text('reasoning'), // LLM reasoning/thinking content (if available)
 	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date())
+});
+
+export const characterMemories = sqliteTable('character_memories', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	characterId: integer('character_id')
+		.notNull()
+		.references(() => characters.id, { onDelete: 'cascade' }),
+	userId: integer('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	content: text('content').notNull(), // The memory text
+	source: text('source').notNull().default('conversation'), // 'conversation', 'manual', 'system'
+	sourceConversationId: integer('source_conversation_id')
+		.references(() => conversations.id, { onDelete: 'set null' }), // Where it was learned
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date()),
+	updatedAt: integer('updated_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())
 });
@@ -305,5 +341,9 @@ export type TagLibrary = typeof tagLibrary.$inferSelect;
 export type NewTagLibrary = typeof tagLibrary.$inferInsert;
 export type Conversation = typeof conversations.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
+export type ConversationCharacter = typeof conversationCharacters.$inferSelect;
+export type NewConversationCharacter = typeof conversationCharacters.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
+export type CharacterMemory = typeof characterMemories.$inferSelect;
+export type NewCharacterMemory = typeof characterMemories.$inferInsert;
