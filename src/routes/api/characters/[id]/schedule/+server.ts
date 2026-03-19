@@ -5,13 +5,13 @@ import { characters, llmSettings } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { callLlm } from '$lib/server/services/llmCallService';
 import { llmSettingsService } from '$lib/server/services/llmSettingsService';
+import fs from 'fs/promises';
+import path from 'path';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const SCHEDULE_PROMPT_FILE = path.join(process.cwd(), 'data', 'prompts', 'schedule.txt');
 
-function buildSchedulePrompt(name: string, description: string, day?: string): string {
-	const dayOrWeek = day ? `for ${day.toUpperCase()}` : 'for the full week (MONDAY through SUNDAY)';
-
-	return `Based on the character description below, create a realistic schedule ${dayOrWeek} for ${name}.
+const DEFAULT_SCHEDULE_PROMPT = `Based on the character description below, create a realistic schedule {{dayOrWeek}} for {{name}}.
 
 Status meanings (USE ONLY THESE FOUR):
 - ONLINE: Free and available to chat
@@ -20,7 +20,7 @@ Status meanings (USE ONLY THESE FOUR):
 - OFFLINE: Sleeping or unavailable
 
 Character Description:
-${description}
+{{description}}
 
 RULES:
 - Format: HH:MM-HH:MM STATUS activity text
@@ -33,7 +33,24 @@ RULES:
 - Make activities specific and fun, not generic
 - Use 1-2 emojis per activity
 
-${day ? `${day.toUpperCase()}:` : 'MONDAY:'}`;
+{{dayHeader}}`;
+
+async function buildSchedulePrompt(name: string, description: string, day?: string): Promise<string> {
+	const dayOrWeek = day ? `for ${day.toUpperCase()}` : 'for the full week (MONDAY through SUNDAY)';
+	const dayHeader = day ? `${day.toUpperCase()}:` : 'MONDAY:';
+
+	let template: string;
+	try {
+		template = await fs.readFile(SCHEDULE_PROMPT_FILE, 'utf-8');
+	} catch {
+		template = DEFAULT_SCHEDULE_PROMPT;
+	}
+
+	return template
+		.replace(/\{\{name\}\}/g, name)
+		.replace(/\{\{description\}\}/g, description)
+		.replace(/\{\{dayOrWeek\}\}/g, dayOrWeek)
+		.replace(/\{\{dayHeader\}\}/g, dayHeader);
 }
 
 interface TimeBlock {
@@ -116,7 +133,7 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 	const settings = await llmSettingsService.getUserSettings(parseInt(userId));
 
 	try {
-		const prompt = buildSchedulePrompt(character.name, character.description, mode === 'day' ? day : undefined);
+		const prompt = await buildSchedulePrompt(character.name, character.description, mode === 'day' ? day : undefined);
 
 		const result = await callLlm({
 			messages: [{ role: 'user', content: prompt }],

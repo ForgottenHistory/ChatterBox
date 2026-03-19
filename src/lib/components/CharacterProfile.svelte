@@ -112,6 +112,29 @@
 		}
 	}
 
+	async function handlePersonalitySave(value: string) {
+		if (!character) return;
+
+		try {
+			const response = await fetch(`/api/characters/${character.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ personality: value })
+			});
+
+			if (!response.ok) throw new Error('Failed to update personality');
+
+			character.personality = value;
+			success = 'Updated successfully!';
+			setTimeout(() => (success = null), 3000);
+			if (onUpdate) onUpdate();
+		} catch (err) {
+			console.error('Failed to save personality:', err);
+			error = 'Failed to save personality';
+			throw err;
+		}
+	}
+
 	async function handleImageChange(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const file = input.files?.[0];
@@ -205,7 +228,7 @@
 				<!-- Scrollable Tab Content -->
 				<div class="flex-1 overflow-y-auto p-6">
 					{#if activeTab === 'overview'}
-						<OverviewTab {character} onSave={handleDescriptionSave} />
+						<OverviewTab {character} onSaveDescription={handleDescriptionSave} onSavePersonality={handlePersonalitySave} />
 					{:else if activeTab === 'schedule'}
 						<ScheduleTab {character} {onUpdate} />
 					{:else if activeTab === 'image'}

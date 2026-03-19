@@ -6,10 +6,12 @@
 		generating: boolean;
 		charactersAvailable: boolean;
 		allEngaged: boolean;
+		hasEngaged: boolean;
 		membersSidebarCollapsed: boolean;
 		onExport: () => void;
 		onDebugGenerate: () => void;
 		onDebugEngage: () => void;
+		onDebugClearEngage: () => void;
 		onToggleMembers: () => void;
 	}
 
@@ -20,10 +22,12 @@
 		generating,
 		charactersAvailable,
 		allEngaged,
+		hasEngaged,
 		membersSidebarCollapsed = $bindable(),
 		onExport,
 		onDebugGenerate,
 		onDebugEngage,
+		onDebugClearEngage,
 		onToggleMembers
 	}: Props = $props();
 </script>
@@ -73,6 +77,17 @@
 	>
 		<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+		</svg>
+	</button>
+	<!-- Debug: clear all engagement -->
+	<button
+		onclick={onDebugClearEngage}
+		disabled={!hasEngaged}
+		class="p-1.5 rounded-lg transition cursor-pointer text-[var(--error)] hover:bg-[var(--error)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+		title="Debug: Clear all engagement"
+	>
+		<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"/>
 		</svg>
 	</button>
 	<!-- Members toggle -->

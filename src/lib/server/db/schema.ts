@@ -15,6 +15,7 @@ export const users = sqliteTable('users', {
 	channelFrequencyMin: integer('channel_frequency_min').notNull().default(5), // Min seconds between character messages in channels
 	channelFrequencyMax: integer('channel_frequency_max').notNull().default(30), // Max seconds between character messages in channels
 	useNamePrimer: integer('use_name_primer', { mode: 'boolean' }).notNull().default(true), // Append "CharName: " to prompt to prime the response
+	compactHistory: integer('compact_history', { mode: 'boolean' }).notNull().default(true), // Group same-sender messages in conversation history to save tokens
 	// Engagement roll interval (minutes)
 	engageRollMin: integer('engage_roll_min').notNull().default(1), // Min minutes between engagement rolls
 	engageRollMax: integer('engage_roll_max').notNull().default(3), // Max minutes between engagement rolls
@@ -184,6 +185,9 @@ export const characters = sqliteTable('characters', {
 		.references(() => users.id, { onDelete: 'cascade' }),
 	name: text('name').notNull(),
 	description: text('description'),
+	personality: text('personality'),
+	originalDescription: text('original_description'), // Preserved from card import for revert
+	originalPersonality: text('original_personality'), // Preserved from card import for revert
 	tags: text('tags'), // JSON array of tags
 	imageData: text('image_data'), // Base64 image data (full size)
 	thumbnailData: text('thumbnail_data'), // Base64 thumbnail for sidebar

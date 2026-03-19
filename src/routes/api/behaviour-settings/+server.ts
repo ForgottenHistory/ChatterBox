@@ -22,6 +22,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		channelFrequencyMin: user.channelFrequencyMin,
 		channelFrequencyMax: user.channelFrequencyMax,
 		useNamePrimer: user.useNamePrimer,
+		compactHistory: user.compactHistory,
 		engageRollMin: user.engageRollMin,
 		engageRollMax: user.engageRollMax,
 		doubleTextChanceMin: user.doubleTextChanceMin,
@@ -56,6 +57,9 @@ export const PUT: RequestHandler = async ({ cookies, request }) => {
 	// Name primer
 	if (typeof body.useNamePrimer === 'boolean') {
 		updateData.useNamePrimer = body.useNamePrimer;
+	}
+	if (typeof body.compactHistory === 'boolean') {
+		updateData.compactHistory = body.compactHistory;
 	}
 
 	// Engagement roll interval (minutes)

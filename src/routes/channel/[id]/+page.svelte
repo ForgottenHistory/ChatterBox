@@ -273,7 +273,7 @@
 	}
 
 	// Reset the loop timer and trigger an immediate response from a random engaged character
-	async function triggerEngagedResponse() {
+	async function triggerEngagedResponse(userMessage?: string) {
 		const active = getActiveEngaged();
 		if (active.length === 0) return;
 
@@ -283,8 +283,23 @@
 			engagementTimer = null;
 		}
 
-		// Pick a random engaged character to respond
-		const charId = active[Math.floor(Math.random() * active.length)];
+		// If the user mentioned a character by name, prioritize them
+		let charId: number | undefined;
+		if (userMessage) {
+			const msgLower = userMessage.toLowerCase();
+			for (const id of active) {
+				const char = characters.find(c => c.id === id);
+				if (char && msgLower.includes(char.name.toLowerCase())) {
+					charId = id;
+					break;
+				}
+			}
+		}
+
+		// Otherwise pick random
+		if (!charId) {
+			charId = active[Math.floor(Math.random() * active.length)];
+		}
 		lastSpeakerId = charId;
 
 		try {
@@ -311,9 +326,14 @@
 
 	// ─── Message Generation ───
 	function sleep(ms: number) { return new Promise(resolve => setTimeout(resolve, ms)); }
+	let generateQueue: Array<{ characterId?: number; proactive: boolean }> = [];
 
 	async function generateCharacterMessage(characterId?: number, proactive = false) {
-		if (generating) return;
+		if (generating) {
+			// Queue it — will be picked up when current generation finishes
+			generateQueue.push({ characterId, proactive });
+			return;
+		}
 		generating = true;
 
 		const pickedCharacter = characterId
@@ -335,6 +355,19 @@
 
 			if (response.ok) {
 				const result = await response.json();
+
+				// Character chose to ignore — disengage them and put on cooldown
+				if (result.ignored && result.characterId) {
+					console.log(`[Engagement] ${pickedCharacter?.name || result.characterId} chose to ignore`);
+					engagedCharacters.delete(result.characterId);
+					engagedCharacters = new Map(engagedCharacters);
+					const cooldownMs = (behaviourSettings?.engageCooldown ?? 5) * 60 * 1000;
+					if (cooldownMs > 0) {
+						engageCooldowns.set(result.characterId, Date.now() + cooldownMs);
+						engageCooldowns = new Map(engageCooldowns);
+					}
+				}
+
 				const newMessages: Message[] = result.messages || [];
 				if (newMessages.length > 0) typingCharacter = newMessages[0].senderName || typingCharacter;
 
@@ -354,6 +387,12 @@
 		} finally {
 			generating = false;
 			typingCharacter = null;
+
+			// Process next queued generation if any
+			if (generateQueue.length > 0) {
+				const next = generateQueue.shift()!;
+				generateCharacterMessage(next.characterId, next.proactive);
+			}
 		}
 	}
 
@@ -406,7 +445,20 @@
 
 				if (getActiveEngaged().length > 0) {
 					// Characters are engaged — guarantee an immediate response and reset timer
-					triggerEngagedResponse();
+					triggerEngagedResponse(text);
+					// 1% chance to pull another character into the conversation
+					if (Math.random() < 0.01) {
+						const available = characters.filter(c =>
+							!engagedCharacters.has(c.id) &&
+							!engageCooldowns.has(c.id) &&
+							getCharacterStatus(c) !== 'offline'
+						);
+						if (available.length > 0) {
+							const char = available[Math.floor(Math.random() * available.length)];
+							console.log(`[Engagement] Lucky 1% roll — ${char.name} joins the chat`);
+							engageCharacter(char.id, false);
+						}
+					}
 				} else {
 					// No one engaged — roll for new engagement
 					rollEngagement();
@@ -432,6 +484,14 @@
 		if (available.length === 0) return;
 		engageCharacter(available[Math.floor(Math.random() * available.length)].id);
 	}
+
+	function debugClearEngagement() {
+		stopEngagementLoop();
+		engagedCharacters = new Map();
+		engageCooldowns = new Map();
+		lastSpeakerId = null;
+		console.log('[Engagement] All engagement cleared');
+	}
 </script>
 
 <svelte:head>
@@ -447,10 +507,12 @@
 			{generating}
 			charactersAvailable={characters.length > 0}
 			allEngaged={characters.every(c => engagedCharacters.has(c.id) || getCharacterStatus(c) === 'offline')}
+			hasEngaged={getActiveEngaged().length > 0}
 			bind:membersSidebarCollapsed
 			onExport={exportChat}
 			onDebugGenerate={() => generateCharacterMessage()}
 			onDebugEngage={debugEngageRandom}
+			onDebugClearEngage={debugClearEngagement}
 			onToggleMembers={() => membersSidebarCollapsed = !membersSidebarCollapsed}
 		/>
 

@@ -87,7 +87,7 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 
 	// Get behaviour settings
 	const [user] = await db
-		.select({ useNamePrimer: users.useNamePrimer })
+		.select({ useNamePrimer: users.useNamePrimer, compactHistory: users.compactHistory })
 		.from(users)
 		.where(eq(users.id, parseInt(userId)))
 		.limit(1);
@@ -98,12 +98,25 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			character,
 			settings,
 			proactive ? 'channel-proactive' : 'channel',
-			{ useNamePrimer: user?.useNamePrimer ?? true, proactive }
+			{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive }
 		);
+
+		// Check for *ignore* — character chooses not to respond
+		// Must be the first non-empty line; also strip it from the output if mixed with real content
+		const contentLines = aiResult.content.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
+		const firstLine = (contentLines[0] || '').toLowerCase();
+		if (firstLine === '*ignore*' || firstLine === 'ignore' || firstLine === '*ignore*.') {
+			return json({ messages: [], ignored: true, characterId: character.id });
+		}
+		// Also strip any stray *ignore* lines from the rest
+		const cleanedContent = contentLines.filter(l => {
+			const lower = l.toLowerCase();
+			return lower !== '*ignore*' && lower !== 'ignore';
+		}).join('\n');
 
 		// Post-process: split on newlines, strip "Name: " prefixes, drop other people's lines
 		const charName = character.name.toLowerCase();
-		const lines = aiResult.content
+		const lines = cleanedContent
 			.split(/\n+/)
 			.map((line: string) => line.trim())
 			.filter((line: string) => line.length > 0)

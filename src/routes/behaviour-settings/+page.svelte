@@ -13,6 +13,7 @@
 	let channelFrequencyMin = $state(5);
 	let channelFrequencyMax = $state(30);
 	let useNamePrimer = $state(true);
+	let compactHistory = $state(true);
 
 	// Engagement settings
 	let engageRollMin = $state(1);
@@ -39,6 +40,7 @@
 				channelFrequencyMin = d.channelFrequencyMin ?? 5;
 				channelFrequencyMax = d.channelFrequencyMax ?? 30;
 				useNamePrimer = d.useNamePrimer ?? true;
+				compactHistory = d.compactHistory ?? true;
 				engageRollMin = d.engageRollMin ?? 1;
 				engageRollMax = d.engageRollMax ?? 3;
 				engageCooldown = d.engageCooldown ?? 5;
@@ -67,7 +69,7 @@
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					channelFrequencyMin, channelFrequencyMax, useNamePrimer,
+					channelFrequencyMin, channelFrequencyMax, useNamePrimer, compactHistory,
 					engageRollMin, engageRollMax,
 					engageCooldown,
 					doubleTextChanceMin, doubleTextChanceMax,
@@ -266,6 +268,26 @@
 									<input
 										type="checkbox"
 										bind:checked={useNamePrimer}
+										class="sr-only peer"
+									/>
+									<div class="w-11 h-6 bg-[var(--border-secondary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--border-primary)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div>
+								</label>
+							</div>
+						</div>
+
+						<!-- Compact History -->
+						<div>
+							<div class="flex items-center justify-between p-4 bg-[var(--bg-tertiary)] rounded-xl">
+								<div>
+									<h2 class="text-sm font-medium text-[var(--text-primary)]">Compact Conversation History</h2>
+									<p class="text-xs text-[var(--text-muted)] mt-1">
+										Group consecutive messages from the same sender to reduce token usage in prompts
+									</p>
+								</div>
+								<label class="relative inline-flex items-center cursor-pointer">
+									<input
+										type="checkbox"
+										bind:checked={compactHistory}
 										class="sr-only peer"
 									/>
 									<div class="w-11 h-6 bg-[var(--border-secondary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--border-primary)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div>

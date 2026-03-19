@@ -30,7 +30,8 @@ RULES:
 - ONLY write your own messages as {{char}}. NEVER write messages for other people
 - Do NOT prefix your messages with your name - just write the message content directly
 - Focus on ONE thing - respond to one person or one topic at a time, not everyone at once
-- You don't need to acknowledge every person in the chat. Real people focus on what catches their attention`;
+- You don't need to acknowledge every person in the chat. Real people focus on what catches their attention
+- If you have nothing to say, or the conversation doesn't interest you right now, or you're too busy, reply with just *ignore* and nothing else. This is the ONLY allowed use of asterisks`;
 
 const DEFAULT_PROACTIVE_PROMPT = `You're starting a new topic in the group chat. This is NOT a reply to anything.
 
@@ -116,7 +117,7 @@ export async function generateChatCompletion(
 	character: Character,
 	settings: LlmSettings,
 	messageType: string = 'chat',
-	options?: { useNamePrimer?: boolean; proactive?: boolean }
+	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean }
 ): Promise<ChatCompletionResult> {
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
@@ -167,11 +168,21 @@ export async function generateChatCompletion(
 					const timeDisplay = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 					const dayDisplay = dayNames[now.getDay()];
 
-					for (const block of blocks) {
-						if (timeStr >= block.start && timeStr < block.end) {
-							systemContent += `\n\nCurrent time: ${timeDisplay}, ${dayDisplay}. Your status: ${block.status.toUpperCase()}. You are currently: ${block.activity}`;
-							break;
+					const currentIdx = blocks.findIndex((b: any) => timeStr >= b.start && timeStr < b.end);
+					if (currentIdx !== -1) {
+						const current = blocks[currentIdx];
+						let scheduleContext = `\n\nCurrent time: ${timeDisplay}, ${dayDisplay}. Your status: ${current.status.toUpperCase()}. You are currently: ${current.activity}`;
+
+						// Add next 3 upcoming activities
+						const upcoming = blocks.slice(currentIdx + 1, currentIdx + 4);
+						if (upcoming.length > 0) {
+							scheduleContext += '\nUpcoming:';
+							for (const block of upcoming) {
+								scheduleContext += `\n- ${block.start}-${block.end}: ${block.activity}`;
+							}
 						}
+
+						systemContent += scheduleContext;
 					}
 				}
 			} catch {}
@@ -183,10 +194,26 @@ export async function generateChatCompletion(
 		}
 
 		if (conversationHistory.length > 0) {
-			const historyLines = conversationHistory.map((msg) => {
-				const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
-				return `${name}: ${msg.content}`;
-			});
+			const historyLines: string[] = [];
+			if (options?.compactHistory !== false) {
+				// Compact: group same-sender messages to save tokens
+				let lastSender = '';
+				for (const msg of conversationHistory) {
+					const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
+					if (name !== lastSender) {
+						historyLines.push(`${name}: ${msg.content}`);
+						lastSender = name;
+					} else {
+						historyLines.push(msg.content);
+					}
+				}
+			} else {
+				// Verbose: name on every message
+				for (const msg of conversationHistory) {
+					const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
+					historyLines.push(`${name}: ${msg.content}`);
+				}
+			}
 			systemContent += `\n\nCONVERSATION HISTORY:\n${historyLines.join('\n')}`;
 		}
 		// Name primer: append "CharName: " to guide the model

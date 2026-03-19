@@ -54,9 +54,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 					continue;
 				}
 
-				// Extract basic info for display (full card data is preserved in cardData field)
+				// Extract basic info from card
 				const name = cardData.data?.name || 'Unknown';
 				const description = cardData.data?.description || '';
+				const personality = cardData.data?.personality || '';
 				const tags = cardData.data?.tags || [];
 
 				// Convert image to base64
@@ -85,6 +86,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 						userId: parseInt(userId),
 						name,
 						description,
+						personality,
+						originalDescription: description,
+						originalPersonality: personality,
 						tags: JSON.stringify(tags),
 						imageData,
 						thumbnailData

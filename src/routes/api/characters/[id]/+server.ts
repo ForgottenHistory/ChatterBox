@@ -48,13 +48,14 @@ export const PUT: RequestHandler = async ({ params, cookies, request }) => {
 
 	try {
 		const body = await request.json();
-		const { name, tags, description, imageTags, contextualTags, mainPromptOverride, negativePromptOverride, scheduleData } = body;
+		const { name, tags, description, personality, imageTags, contextualTags, mainPromptOverride, negativePromptOverride, scheduleData } = body;
 
 		// Build update object with only provided fields
 		const updateData: Record<string, any> = {};
 		if (name !== undefined) updateData.name = name;
 		if (tags !== undefined) updateData.tags = JSON.stringify(tags);
 		if (description !== undefined) updateData.description = description;
+		if (personality !== undefined) updateData.personality = personality;
 		// Image generation settings
 		if (imageTags !== undefined) updateData.imageTags = imageTags;
 		if (contextualTags !== undefined) updateData.contextualTags = contextualTags;
