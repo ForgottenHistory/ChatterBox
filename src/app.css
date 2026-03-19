@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+
+/* ChatterBox Dark Theme */
+:root {
+	/* Base backgrounds */
+	--bg-primary: #1a1a2e;      /* deep navy */
+	--bg-secondary: #222240;    /* dark indigo */
+	--bg-tertiary: #2d2d50;     /* muted purple-gray */
+	--bg-elevated: #252547;     /* slightly lifted */
+
+	/* Text colors */
+	--text-primary: #eaf0f6;    /* cool white */
+	--text-secondary: #a8b4c4;  /* blue-gray */
+	--text-muted: #6b7a8d;      /* dimmed steel */
+
+	/* Border colors */
+	--border-primary: #2d2d50;  /* muted purple-gray */
+	--border-secondary: #3a3a5c; /* lighter purple-gray */
+
+	/* Accent colors */
+	--accent-primary: #00d4aa;  /* teal */
+	--accent-secondary: #7c5bf5; /* electric violet */
+	--accent-hover: #33e0be;    /* bright teal */
+
+	/* User message bubble */
+	--user-bubble-from: #00b894; /* deep teal */
+	--user-bubble-to: #6c4de6;   /* violet */
+
+	/* Assistant message bubble */
+	--assistant-bubble: #222240; /* dark indigo */
+	--assistant-border: #2d2d50; /* muted purple-gray */
+
+	/* Status colors */
+	--success: #00d4aa;         /* teal */
+	--warning: #f0b429;         /* warm amber */
+	--error: #ff6b6b;           /* soft red */
+
+	/* Sidebar */
+	--sidebar-bg: #151528;      /* deepest navy */
+	--sidebar-hover: #1e1e38;   /* dark navy hover */
+	--sidebar-active: #2d2d50;  /* muted purple-gray */
+}
+
+/* Custom Scrollbar Styling */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--accent-primary) var(--bg-secondary);
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+	background: var(--bg-secondary);
+	border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: linear-gradient(to bottom, var(--accent-primary), var(--accent-secondary));
+	border-radius: 10px;
+	border: 2px solid var(--bg-secondary);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background: linear-gradient(to bottom, var(--accent-hover), var(--accent-secondary));
+}
+
+/* Base body styles */
+body {
+	background-color: var(--bg-primary);
+	color: var(--text-primary);
+}
