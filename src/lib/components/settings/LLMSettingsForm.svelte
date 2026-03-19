@@ -4,6 +4,7 @@
 	interface LLMSettings {
 		provider: string;
 		model: string;
+		modelPool?: string | null;
 		temperature: number;
 		maxTokens: number;
 		topP: number;
@@ -11,7 +12,6 @@
 		presencePenalty: number;
 		contextWindow: number;
 		reasoningEnabled?: boolean;
-		// Featherless-specific parameters
 		topK?: number;
 		minP?: number;
 		repetitionPenalty?: number;
@@ -30,6 +30,50 @@
 		onSavePreset?: () => void;
 		onReload: () => void;
 	} = $props();
+
+	// Model pool state
+	let poolModels = $state<string[]>([]);
+	let poolEnabled = $state(false);
+
+	// Sync pool state from settings
+	$effect(() => {
+		if (settings.modelPool) {
+			try {
+				const parsed = JSON.parse(settings.modelPool);
+				if (Array.isArray(parsed) && parsed.length > 0) {
+					poolModels = parsed;
+					poolEnabled = true;
+					return;
+				}
+			} catch {}
+		}
+		poolModels = [];
+		poolEnabled = false;
+	});
+
+	function addToPool() {
+		if (settings.model && !poolModels.includes(settings.model)) {
+			poolModels = [...poolModels, settings.model];
+			syncPoolToSettings();
+		}
+	}
+
+	function removeFromPool(modelId: string) {
+		poolModels = poolModels.filter(m => m !== modelId);
+		syncPoolToSettings();
+	}
+
+	function syncPoolToSettings() {
+		settings.modelPool = poolModels.length > 0 ? JSON.stringify(poolModels) : null;
+	}
+
+	function togglePool() {
+		poolEnabled = !poolEnabled;
+		if (!poolEnabled) {
+			poolModels = [];
+			settings.modelPool = null;
+		}
+	}
 </script>
 
 <form
@@ -60,6 +104,63 @@
 			provider={settings.provider}
 			onSelect={(modelId) => (settings.model = modelId)}
 		/>
+	</div>
+
+	<!-- Model Rotation Pool -->
+	<div class="border border-[var(--border-primary)] rounded-xl p-4 space-y-3">
+		<div class="flex items-center justify-between">
+			<div>
+				<h3 class="font-medium text-[var(--text-primary)]">Model Rotation</h3>
+				<p class="text-xs text-[var(--text-muted)] mt-0.5">Randomly pick from a pool of models each request</p>
+			</div>
+			<label class="relative inline-flex items-center cursor-pointer">
+				<input
+					type="checkbox"
+					checked={poolEnabled}
+					onchange={togglePool}
+					class="sr-only peer"
+				/>
+				<div class="w-11 h-6 bg-[var(--border-secondary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--border-primary)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div>
+			</label>
+		</div>
+
+		{#if poolEnabled}
+			<!-- Add current model to pool button -->
+			<button
+				type="button"
+				onclick={addToPool}
+				disabled={!settings.model || poolModels.includes(settings.model)}
+				class="w-full px-3 py-2 text-sm border rounded-lg transition cursor-pointer disabled:cursor-not-allowed {!settings.model || poolModels.includes(settings.model)
+					? 'bg-[var(--bg-primary)] border-[var(--border-secondary)] text-[var(--text-muted)]'
+					: 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)]/30 text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/20'}"
+			>
+				+ Add "{settings.model.split('/').pop() || settings.model}" to pool
+			</button>
+
+			<!-- Pool list -->
+			{#if poolModels.length > 0}
+				<div class="space-y-1.5">
+					{#each poolModels as modelId}
+						<div class="flex items-center justify-between px-3 py-2 bg-[var(--bg-tertiary)] rounded-lg">
+							<span class="text-sm text-[var(--text-primary)] truncate flex-1">{modelId}</span>
+							<button
+								type="button"
+								onclick={() => removeFromPool(modelId)}
+								class="p-1 text-[var(--text-muted)] hover:text-[var(--error)] transition cursor-pointer flex-shrink-0 ml-2"
+								title="Remove from pool"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+								</svg>
+							</button>
+						</div>
+					{/each}
+				</div>
+				<p class="text-xs text-[var(--text-muted)]">{poolModels.length} model{poolModels.length !== 1 ? 's' : ''} in rotation</p>
+			{:else}
+				<p class="text-xs text-[var(--text-muted)]">Select models above and add them to the pool</p>
+			{/if}
+		{/if}
 	</div>
 
 	<!-- Temperature -->
@@ -124,7 +225,7 @@
 					onchange={(e) => settings.reasoningEnabled = e.currentTarget.checked}
 					class="sr-only peer"
 				/>
-				<div class="w-11 h-6 bg-[var(--bg-secondary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--border-primary)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div>
+				<div class="w-11 h-6 bg-[var(--border-secondary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--accent-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--border-primary)] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div>
 			</label>
 		</div>
 	{/if}

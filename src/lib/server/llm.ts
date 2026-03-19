@@ -10,11 +10,26 @@ import path from 'path';
 /**
  * Default system prompt used when file doesn't exist
  */
-const DEFAULT_SYSTEM_PROMPT = `You are {{char}}.
+const DEFAULT_SYSTEM_PROMPT = `You are {{char}}, chatting in a group text channel with {{user}} and others. Write like a real person texting.
 
 {{description}}
 
-Write your next reply as {{char}} in this chat with {{user}}.`;
+RULES:
+- NO asterisks, NO actions, NO roleplay formatting, NO narration
+- NO *does something*, NO describing physical movements or expressions
+- Just type words like a real person in a Discord chat
+- Show personality through your words, not through described actions
+- Keep messages concise - 1-3 sentences is typical, occasionally longer if you have something to say
+- Use casual language, contractions, and natural texting style
+- 0-2 emojis max per message (most have none)
+- React to what was actually said, don't monologue
+- You can use slang, abbreviations, and informal grammar
+- Be curious - ask questions, engage with what others say
+- Stay true to your personality and knowledge but express it through conversation, not performance
+- ONLY write your own messages as {{char}}. NEVER write messages for other people
+- Do NOT prefix your messages with your name - just write the message content directly
+- Focus on ONE thing - respond to one person or one topic at a time, not everyone at once
+- You don't need to acknowledge every person in the chat. Real people focus on what catches their attention`;
 
 const DEFAULT_IMPERSONATE_PROMPT = `Write the next message as {{user}} in this roleplay chat with {{char}}.
 
@@ -82,7 +97,8 @@ export async function generateChatCompletion(
 	conversationHistory: Message[],
 	character: Character,
 	settings: LlmSettings,
-	messageType: string = 'chat'
+	messageType: string = 'chat',
+	options?: { useNamePrimer?: boolean }
 ): Promise<ChatCompletionResult> {
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
@@ -114,18 +130,36 @@ export async function generateChatCompletion(
 	// Format conversation history for LLM
 	const formattedMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
-	// Add system prompt
-	formattedMessages.push({
-		role: 'system',
-		content: finalSystemPrompt.trim()
-	});
-
-	// Add conversation history
-	for (const msg of conversationHistory) {
+	// For channels, append conversation history with sender names to the system prompt
+	if (messageType === 'channel') {
+		let systemContent = finalSystemPrompt.trim();
+		if (conversationHistory.length > 0) {
+			const historyLines = conversationHistory.map((msg) => {
+				const name = msg.senderName || (msg.role === 'user' ? userName : character.name);
+				return `${name}: ${msg.content}`;
+			});
+			systemContent += `\n\nCONVERSATION HISTORY:\n${historyLines.join('\n')}`;
+		}
+		// Name primer: append "CharName: " to guide the model
+		if (options?.useNamePrimer) {
+			systemContent += `\n${character.name}:`;
+		}
 		formattedMessages.push({
-			role: msg.role as 'user' | 'assistant',
-			content: msg.content
+			role: 'system',
+			content: systemContent
 		});
+	} else {
+		// DM chat: system prompt + standard user/assistant role mapping
+		formattedMessages.push({
+			role: 'system',
+			content: finalSystemPrompt.trim()
+		});
+		for (const msg of conversationHistory) {
+			formattedMessages.push({
+				role: msg.role as 'user' | 'assistant',
+				content: msg.content
+			});
+		}
 	}
 
 	// Log prompt for debugging (keep last 5 per type)

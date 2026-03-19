@@ -11,6 +11,10 @@ export const users = sqliteTable('users', {
 	activePersonaId: integer('active_persona_id'), // Currently active persona (null = use user profile)
 	chatLayout: text('chat_layout').notNull().default('bubbles'), // 'bubbles' (chat app style) or 'discord' (full-width rows)
 	avatarStyle: text('avatar_style').notNull().default('circle'), // 'circle' or 'rounded' (rounded square)
+	// Behaviour settings
+	channelFrequencyMin: integer('channel_frequency_min').notNull().default(5), // Min seconds between character messages in channels
+	channelFrequencyMax: integer('channel_frequency_max').notNull().default(30), // Max seconds between character messages in channels
+	useNamePrimer: integer('use_name_primer', { mode: 'boolean' }).notNull().default(true), // Append "CharName: " to prompt to prime the response
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.$defaultFn(() => new Date())
@@ -45,6 +49,7 @@ export const llmSettings = sqliteTable('llm_settings', {
 	contextWindow: integer('context_window').notNull().default(8000),
 	reasoningEnabled: integer('reasoning_enabled', { mode: 'boolean' }).notNull().default(false),
 	// Featherless-specific parameters
+	modelPool: text('model_pool'), // JSON array of model IDs for rotation (null = use primary model only)
 	topK: integer('top_k').notNull().default(-1), // -1 means disabled
 	minP: real('min_p').notNull().default(0.0),
 	repetitionPenalty: real('repetition_penalty').notNull().default(1.0)

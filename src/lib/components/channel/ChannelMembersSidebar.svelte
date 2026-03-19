@@ -4,9 +4,13 @@
 	interface Props {
 		characters: Character[];
 		user: User;
+		avatarStyle?: 'circle' | 'rounded';
 	}
 
-	let { characters, user }: Props = $props();
+	let { characters, user, avatarStyle = 'circle' }: Props = $props();
+
+	let avatarClass = $derived(avatarStyle === 'rounded' ? 'rounded-lg' : 'rounded-full');
+	let memberAvatarSize = $derived(avatarStyle === 'rounded' ? 'w-7 h-9' : 'w-8 h-8');
 
 	// For now all characters are online
 	let onlineCharacters = $derived(characters);
@@ -27,10 +31,10 @@
 					<img
 						src={user.avatarThumbnail || user.avatarData}
 						alt={user.displayName}
-						class="w-8 h-8 rounded-full object-cover"
+						class="{memberAvatarSize} {avatarClass} object-cover"
 					/>
 				{:else}
-					<div class="w-8 h-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-white font-bold text-xs">
+					<div class="{memberAvatarSize} {avatarClass} bg-[var(--accent-primary)] flex items-center justify-center text-white font-bold text-xs">
 						{user.displayName.charAt(0).toUpperCase()}
 					</div>
 				{/if}
@@ -47,10 +51,10 @@
 						<img
 							src={character.thumbnailData || character.imageData}
 							alt={character.name}
-							class="w-8 h-8 rounded-full object-cover"
+							class="{memberAvatarSize} {avatarClass} object-cover"
 						/>
 					{:else}
-						<div class="w-8 h-8 rounded-full bg-[var(--accent-secondary)] flex items-center justify-center text-white font-bold text-xs">
+						<div class="{memberAvatarSize} {avatarClass} bg-[var(--accent-secondary)] flex items-center justify-center text-white font-bold text-xs">
 							{character.name.charAt(0).toUpperCase()}
 						</div>
 					{/if}
@@ -73,10 +77,10 @@
 							<img
 								src={character.thumbnailData || character.imageData}
 								alt={character.name}
-								class="w-8 h-8 rounded-full object-cover grayscale"
+								class="w-8 h-8 {avatarClass} object-cover grayscale"
 							/>
 						{:else}
-							<div class="w-8 h-8 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center text-[var(--text-muted)] font-bold text-xs">
+							<div class="{memberAvatarSize} {avatarClass} bg-[var(--bg-tertiary)] flex items-center justify-center text-[var(--text-muted)] font-bold text-xs">
 								{character.name.charAt(0).toUpperCase()}
 							</div>
 						{/if}

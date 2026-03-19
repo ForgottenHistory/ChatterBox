@@ -119,7 +119,16 @@ class LlmService {
 			? await llmSettingsService.getUserSettings(userId)
 			: llmSettingsService.getDefaultSettings();
 
-		const selectedModel = model || userSettings.model;
+		// Pick model: use explicit override, or pick from pool if available, or use primary
+		let selectedModel = model || userSettings.model;
+		if (!model && userSettings.modelPool) {
+			try {
+				const pool = JSON.parse(userSettings.modelPool);
+				if (Array.isArray(pool) && pool.length > 0) {
+					selectedModel = pool[Math.floor(Math.random() * pool.length)];
+				}
+			} catch {}
+		}
 		const selectedTemperature = temperature ?? userSettings.temperature;
 		const selectedMaxTokens = maxTokens ?? userSettings.maxTokens;
 		const provider = userSettings.provider || 'openrouter';

@@ -92,9 +92,9 @@
 					<div class="space-y-8">
 						<!-- Chat Layout Section -->
 						<div>
-							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-4">Chat Layout</h2>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-4">DM Chat Layout</h2>
 							<p class="text-sm text-[var(--text-muted)] mb-4">
-								Choose how messages are displayed in conversations
+								Choose how messages are displayed in direct message conversations
 							</p>
 
 							<div class="grid grid-cols-2 gap-4">
@@ -189,12 +189,11 @@
 							</div>
 						</div>
 
-						<!-- Avatar Style Section (only show for Discord layout) -->
-						{#if chatLayout === 'discord'}
+						<!-- Avatar Style Section -->
 							<div>
 								<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-4">Avatar Style</h2>
 								<p class="text-sm text-[var(--text-muted)] mb-4">
-									Choose the shape of avatars in Discord layout
+									Choose the shape of avatars across the app
 								</p>
 
 								<div class="grid grid-cols-2 gap-4">
@@ -240,20 +239,19 @@
 												</svg>
 											</div>
 										{/if}
-										<!-- Preview: Rounded square avatar -->
+										<!-- Preview: Rounded rectangle avatar -->
 										<div class="mb-4 flex justify-center">
-											<div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]"></div>
+											<div class="w-10 h-14 rounded-lg bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-secondary)]"></div>
 										</div>
 										<div class="text-left">
-											<p class="font-medium text-[var(--text-primary)]">Rounded Square</p>
+											<p class="font-medium text-[var(--text-primary)]">Rounded Rectangle</p>
 											<p class="text-xs text-[var(--text-muted)] mt-1">
-												Rounded corners like the sidebar
+												Portrait-style rounded corners
 											</p>
 										</div>
 									</button>
 								</div>
 							</div>
-						{/if}
 
 						<!-- Save Button -->
 						<div class="pt-4 border-t border-[var(--border-primary)]">

@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS = {
 	presencePenalty: 0.0,
 	contextWindow: 8000,
 	reasoningEnabled: false,
+	modelPool: null as string | null,
 	// Featherless-specific parameters
 	topK: -1,
 	minP: 0.0,
