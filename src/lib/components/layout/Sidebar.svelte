@@ -5,7 +5,7 @@
 	import CreateChannelModal from './CreateChannelModal.svelte';
 
 	interface Props {
-		user: User;
+		user: Omit<User, 'passwordHash'>;
 		currentPath: string;
 		collapsed: boolean;
 	}

@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { Character, User } from '$lib/server/db/schema';
+	type UserWithoutPassword = Omit<User, 'passwordHash'>;
 
 	interface Props {
 		characters: Character[];
-		user: User;
+		user: UserWithoutPassword;
 		avatarStyle?: 'circle' | 'rounded';
 		engagedIds?: Set<number>;
 	}

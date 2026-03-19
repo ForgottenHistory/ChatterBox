@@ -10,7 +10,7 @@ export const DELETE: RequestHandler = async ({ params, cookies }) => {
 		return json({ error: 'Not authenticated' }, { status: 401 });
 	}
 
-	const presetId = parseInt(params.id);
+	const presetId = parseInt(params.id!);
 	if (isNaN(presetId)) {
 		return json({ error: 'Invalid preset ID' }, { status: 400 });
 	}

@@ -41,7 +41,7 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 				tags: characters.tags
 			})
 			.from(characters)
-			.where(eq(characters.id, conversation.characterId))
+			.where(eq(characters.id, conversation.characterId!))
 			.limit(1);
 
 		// Get all messages

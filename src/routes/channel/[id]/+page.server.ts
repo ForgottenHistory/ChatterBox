@@ -38,7 +38,7 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
 	return {
 		channelId: channel.id,
-		channelName: channel.name,
+		channelName: channel.name || 'unnamed',
 		channelDescription: channel.description,
 		user
 	};

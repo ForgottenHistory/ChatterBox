@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 		return json({ error: 'Not authenticated' }, { status: 401 });
 	}
 
-	const characterId = parseInt(params.characterId);
+	const characterId = parseInt(params.characterId!);
 	if (isNaN(characterId)) {
 		return json({ error: 'Invalid character ID' }, { status: 400 });
 	}

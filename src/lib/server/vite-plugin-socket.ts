@@ -16,7 +16,7 @@ export function socketPlugin(): Plugin {
 
 			// Wait for server to be listening before initializing Socket.IO
 			server.httpServer.once('listening', () => {
-				initSocketServer(server.httpServer!);
+				initSocketServer(server.httpServer! as any);
 			});
 		}
 	};

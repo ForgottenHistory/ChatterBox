@@ -4,7 +4,7 @@
 	import TopNavBar from './layout/TopNavBar.svelte';
 
 	interface Props {
-		user: User;
+		user: Omit<User, 'passwordHash'>;
 		currentPath: string;
 	}
 
