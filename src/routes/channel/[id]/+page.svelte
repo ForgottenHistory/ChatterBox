@@ -95,6 +95,7 @@
 				body: JSON.stringify({
 					characterId: pickedCharacter?.id,
 					proactive,
+					engagedCharacterIds: engine.getActiveEngaged(),
 					visibleMessageIds: pickedCharacter?.id
 						? Array.from(engine.getVisibleMessageIds(pickedCharacter.id, behaviourSettings?.engageContextOffset ?? 10))
 						: undefined
@@ -207,6 +208,18 @@
 		finally { sending = false; setTimeout(() => chatComponent?.focusInput(), 0); }
 	}
 
+	async function debugWipeChat() {
+		if (!confirm('Wipe ALL messages and memories for this channel? This cannot be undone.')) return;
+		try {
+			const res = await fetch(`/api/channels/${data.channelId}/wipe`, { method: 'POST' });
+			if (res.ok) {
+				messages = [];
+				engine.debugClear();
+				console.log('[Debug] Chat and memories wiped');
+			}
+		} catch (e) { console.error('Failed to wipe:', e); }
+	}
+
 	function exportChat() {
 		if (messages.length === 0) return;
 		const lines = messages.map(m => `[${new Date(m.createdAt).toLocaleString()}] ${m.senderName || (m.role === 'user' ? 'User' : 'Assistant')}: ${m.content}`);
@@ -237,6 +250,7 @@
 			onDebugGenerate={() => generateCharacterMessage()}
 			onDebugEngage={() => engine.debugEngageRandom()}
 			onDebugClearEngage={() => engine.debugClear()}
+			onDebugWipe={debugWipeChat}
 			onToggleMembers={() => membersSidebarCollapsed = !membersSidebarCollapsed}
 		/>
 

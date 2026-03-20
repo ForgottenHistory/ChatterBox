@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { llmSettingsService } from './llmSettingsService';
 import { queueService } from './queueService';
+import { db } from '../db';
+import { llmUsageStats } from '../db/schema';
 import { OPENROUTER_API_KEY, FEATHERLESS_API_KEY, NANOGPT_API_KEY } from '$env/static/private';
 
 interface Message {
@@ -14,6 +16,7 @@ interface ChatCompletionParams {
 	model?: string;
 	temperature?: number;
 	maxTokens?: number;
+	messageType?: string;
 }
 
 interface ChatCompletionResponse {
@@ -112,7 +115,8 @@ class LlmService {
 	 * Create a chat completion with retry logic and queueing
 	 */
 	async createChatCompletion(params: ChatCompletionParams): Promise<ChatCompletionResponse> {
-		const { messages, userId, model, temperature, maxTokens } = params;
+		const { messages, userId, model, temperature, maxTokens, messageType: msgType } = params;
+		const startTime = Date.now();
 
 		// Get user settings or defaults
 		const userSettings = userId
@@ -239,6 +243,22 @@ class LlmService {
 					reasoningLength: reasoning?.length || 0,
 					usage: response.data.usage
 				});
+
+				// Track usage
+				if (userId) {
+					const usage = response.data.usage;
+					const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+					const estPrompt = Math.round(promptChars / 4);
+					const estCompletion = Math.round(content.length / 4);
+					db.insert(llmUsageStats).values({
+						userId, provider, model: selectedModel,
+						messageType: msgType || 'chat',
+						promptTokens: usage?.prompt_tokens || estPrompt,
+						completionTokens: usage?.completion_tokens || estCompletion,
+						totalTokens: usage?.total_tokens || (estPrompt + estCompletion),
+						durationMs: Date.now() - startTime, success: true
+					}).catch(() => {});
+				}
 
 				return {
 					content,

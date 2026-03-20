@@ -139,6 +139,7 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			messages: [{ role: 'user', content: prompt }],
 			settings,
 			logType: 'schedule',
+			userId: parseInt(userId),
 			logCharacterName: character.name
 		});
 

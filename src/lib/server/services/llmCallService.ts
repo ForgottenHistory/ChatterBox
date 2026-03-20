@@ -2,6 +2,8 @@ import { queueService } from './queueService';
 import { llmLogService } from './llmLogService';
 import axios from 'axios';
 import { env } from '$env/dynamic/private';
+import { db } from '../db';
+import { llmUsageStats } from '../db/schema';
 
 interface LlmCallParams {
 	messages: { role: string; content: string }[];
@@ -23,6 +25,7 @@ interface LlmCallParams {
 	logType: string;
 	logCharacterName?: string;
 	logUserName?: string;
+	userId?: number;
 	timeout?: number;
 }
 
@@ -96,8 +99,10 @@ export async function callLlm({
 	logType,
 	logCharacterName = 'LLM',
 	logUserName = 'System',
-	timeout = 120000
+	timeout = 120000,
+	userId
 }: LlmCallParams): Promise<LlmCallResult> {
+	const startTime = Date.now();
 	const provider = settings.provider || 'openrouter';
 	const providerConfig = getProviderConfig(provider);
 
@@ -191,6 +196,14 @@ export async function callLlm({
 	}
 
 	if (!response) {
+		// Track failed request
+		if (userId) {
+			db.insert(llmUsageStats).values({
+				userId, provider, model: selectedModel, messageType: logType,
+				promptTokens: 0, completionTokens: 0, totalTokens: 0,
+				durationMs: Date.now() - startTime, success: false
+			}).catch(() => {});
+		}
 		throw new Error(lastError?.response?.data?.error?.message || lastError?.message || `${providerConfig.name} service error after ${maxRetries} retries`);
 	}
 
@@ -217,6 +230,26 @@ export async function callLlm({
 			throw new Error(`Model used ${reasoningTokens} tokens on reasoning but produced no output. Try increasing max tokens in settings.`);
 		}
 		throw new Error('Model returned empty response');
+	}
+
+	// Track usage stats
+	if (userId) {
+		const usage = response.data.usage;
+		// Estimate tokens if provider doesn't return usage data (~4 chars per token)
+		const promptChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+		const estPromptTokens = Math.round(promptChars / 4);
+		const estCompletionTokens = Math.round(content.length / 4);
+		db.insert(llmUsageStats).values({
+			userId,
+			provider,
+			model: selectedModel,
+			messageType: logType,
+			promptTokens: usage?.prompt_tokens || estPromptTokens,
+			completionTokens: usage?.completion_tokens || estCompletionTokens,
+			totalTokens: usage?.total_tokens || (estPromptTokens + estCompletionTokens),
+			durationMs: Date.now() - startTime,
+			success: true
+		}).catch(() => {});
 	}
 
 	return {

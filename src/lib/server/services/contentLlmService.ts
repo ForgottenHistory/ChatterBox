@@ -52,6 +52,7 @@ class ContentLlmService {
 
 			// Call LLM
 			const response = await this.callContentLLM({
+				userId,
 				messages: [{ role: 'user', content: prompt }],
 				settings,
 				contentType: type
@@ -71,17 +72,20 @@ class ContentLlmService {
 	private async callContentLLM({
 		messages,
 		settings,
-		contentType = 'content'
+		contentType = 'content',
+		userId
 	}: {
 		messages: { role: string; content: string }[];
 		settings: any;
 		contentType?: string;
+		userId?: number;
 	}): Promise<string> {
 		const result = await callLlm({
 			messages,
 			settings,
 			logType: `content-${contentType}`,
-			logCharacterName: 'Content LLM'
+			logCharacterName: 'Content LLM',
+			userId
 		});
 		return result.content;
 	}

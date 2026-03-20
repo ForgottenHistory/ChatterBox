@@ -4,6 +4,9 @@ import { personaService } from './services/personaService';
 import { lorebookService } from './services/lorebookService';
 import { getFormattedMemories } from './services/memoryService';
 import { logger } from './utils/logger';
+import { db } from './db';
+import { characters as charactersTable } from './db/schema';
+import { inArray } from 'drizzle-orm';
 import type { Message, Character, LlmSettings } from './db/schema';
 import fs from 'fs/promises';
 import path from 'path';
@@ -24,7 +27,7 @@ RULES:
 - Match the length of what others are sending. If they send 3 words, don't send a paragraph
 - Never explain or elaborate unless someone specifically asks you to
 - Use casual language, contractions, and natural texting style
-- 0-2 emojis max per message (most have none)
+- Rarely use emojis. Most messages have zero. Only use one if it genuinely adds something
 - React to what was actually said, don't monologue
 - You can use slang, abbreviations, and informal grammar
 - Be curious - ask questions, engage with what others say
@@ -170,7 +173,7 @@ export async function generateChatCompletion(
 	character: Character,
 	settings: LlmSettings,
 	messageType: string = 'chat',
-	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean }
+	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean; engagedCharacterIds?: number[] }
 ): Promise<ChatCompletionResult> {
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
@@ -205,6 +208,43 @@ export async function generateChatCompletion(
 	// For channels, append conversation history with sender names to the system prompt
 	if (messageType === 'channel' || messageType === 'channel-proactive') {
 		let systemContent = finalSystemPrompt.trim();
+
+		// Add "People in chat" — engaged characters + the user
+		if (options?.engagedCharacterIds && options.engagedCharacterIds.length > 0) {
+			try {
+				// Get all engaged characters (excluding the one generating)
+				const otherIds = options.engagedCharacterIds.filter(id => id !== character.id);
+				let peopleLines: string[] = [];
+
+				// Add the user
+				if (userInfo.description) {
+					peopleLines.push(`${userName} (the user): ${userInfo.description}`);
+				} else {
+					peopleLines.push(`${userName} (the user)`);
+				}
+
+				if (otherIds.length > 0) {
+					const others = await db.select({
+						name: charactersTable.name,
+						personality: charactersTable.personality
+					}).from(charactersTable).where(inArray(charactersTable.id, otherIds));
+
+					for (const other of others) {
+						if (other.personality) {
+							peopleLines.push(`${other.name}: ${other.personality}`);
+						} else {
+							peopleLines.push(other.name);
+						}
+					}
+				}
+
+				if (peopleLines.length > 0) {
+					systemContent += `\n\nPEOPLE IN CHAT (for context only — you are ${character.name}, do NOT speak as anyone else):\n${peopleLines.join('\n')}`;
+				}
+			} catch (err) {
+				logger.warn('Failed to load engaged character personalities:', err);
+			}
+		}
 
 		// Add schedule/activity context if available
 		if (character.scheduleData) {
@@ -302,11 +342,18 @@ export async function generateChatCompletion(
 			role: 'system',
 			content: systemContent
 		});
+		// Name primer: append to system content to guide the model
+		if (options?.useNamePrimer) {
+			systemContent += `\n${character.name}:`;
+		}
+		formattedMessages.push({
+			role: 'system',
+			content: systemContent
+		});
 		// Some providers require at least one non-system message
-		// Use name primer if enabled, otherwise a neutral prompt
 		formattedMessages.push({
 			role: 'user',
-			content: options?.useNamePrimer ? `${character.name}:` : 'Respond in character.'
+			content: 'Respond in character based on the conversation above.'
 		});
 	} else {
 		// DM chat: system prompt + standard user/assistant role mapping
@@ -341,7 +388,8 @@ export async function generateChatCompletion(
 		messages: formattedMessages,
 		userId: settings.userId,
 		temperature: settings.temperature,
-		maxTokens: settings.maxTokens
+		maxTokens: settings.maxTokens,
+		messageType
 	});
 
 	logger.success(`Generated ${messageType} completion`, {
@@ -436,7 +484,8 @@ export async function generateImpersonation(
 		messages: formattedMessages,
 		userId: settings.userId,
 		temperature: settings.temperature,
-		maxTokens: settings.maxTokens
+		maxTokens: settings.maxTokens,
+		messageType: 'impersonate'
 	});
 
 	logger.success(`Generated impersonation`, {

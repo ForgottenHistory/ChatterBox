@@ -343,6 +343,24 @@ export const characterMemories = sqliteTable('character_memories', {
 		.$defaultFn(() => new Date())
 });
 
+export const llmUsageStats = sqliteTable('llm_usage_stats', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	userId: integer('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	provider: text('provider').notNull(),
+	model: text('model').notNull(),
+	messageType: text('message_type').notNull(), // 'channel', 'channel-proactive', 'chat', 'schedule', 'memory-extraction', etc.
+	promptTokens: integer('prompt_tokens').notNull().default(0),
+	completionTokens: integer('completion_tokens').notNull().default(0),
+	totalTokens: integer('total_tokens').notNull().default(0),
+	durationMs: integer('duration_ms').notNull().default(0),
+	success: integer('success', { mode: 'boolean' }).notNull().default(true),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date())
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserPersona = typeof userPersonas.$inferSelect;
@@ -379,3 +397,5 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type CharacterMemory = typeof characterMemories.$inferSelect;
 export type NewCharacterMemory = typeof characterMemories.$inferInsert;
+export type LlmUsageStat = typeof llmUsageStats.$inferSelect;
+export type NewLlmUsageStat = typeof llmUsageStats.$inferInsert;

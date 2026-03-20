@@ -21,15 +21,16 @@ interface PersistedState {
 	engaged: [number, number][];
 	cooldowns: [number, number][];
 	engageStartMsgId: [number, number][];
-	lastDisengageMsgId: [number, number][];
+	engageWindows: [number, [number, number][]][];
 	lastProactive: number;
 }
 
 export class EngagementEngine {
 	engaged = new Map<number, number>();
 	cooldowns = new Map<number, number>();
-	engageStartMsgId = new Map<number, number>(); // characterId -> message ID when they engaged
-	lastDisengageMsgId = new Map<number, number>(); // characterId -> message ID when they last disengaged
+	engageStartMsgId = new Map<number, number>(); // characterId -> message ID when they engaged (current)
+	// All engagement windows: characterId -> array of [startMsgId, endMsgId] pairs
+	engageWindows = new Map<number, [number, number][]>();
 	lastProactiveTime = 0;
 
 	private callbacks: EngagementCallbacks;
@@ -71,7 +72,7 @@ export class EngagementEngine {
 				this.engaged = new Map((parsed.engaged || []).filter(([_, exp]) => now < exp));
 				this.cooldowns = new Map((parsed.cooldowns || []).filter(([_, exp]) => now < exp));
 				this.engageStartMsgId = new Map(parsed.engageStartMsgId || []);
-				this.lastDisengageMsgId = new Map(parsed.lastDisengageMsgId || []);
+				this.engageWindows = new Map(parsed.engageWindows || []);
 				this.lastProactiveTime = parsed.lastProactive || 0;
 			}
 		} catch {}
@@ -83,7 +84,7 @@ export class EngagementEngine {
 				engaged: Array.from(this.engaged.entries()),
 				cooldowns: Array.from(this.cooldowns.entries()),
 				engageStartMsgId: Array.from(this.engageStartMsgId.entries()),
-				lastDisengageMsgId: Array.from(this.lastDisengageMsgId.entries()),
+				engageWindows: Array.from(this.engageWindows.entries()),
 				lastProactive: this.lastProactiveTime
 			}));
 		} catch {}
@@ -148,6 +149,17 @@ export class EngagementEngine {
 		return { chance: 0, duration: 0 };
 	}
 
+	private closeEngageWindow(charId: number) {
+		const startId = this.engageStartMsgId.get(charId);
+		if (startId === undefined) return;
+		const msgs = this.callbacks.getMessages();
+		const endId = msgs.length > 0 ? msgs[msgs.length - 1].id : 0;
+		const windows = this.engageWindows.get(charId) || [];
+		windows.push([startId, endId]);
+		this.engageWindows.set(charId, windows);
+		this.engageStartMsgId.delete(charId);
+	}
+
 	private cleanExpired() {
 		const now = Date.now();
 		const s = this.callbacks.getBehaviourSettings();
@@ -159,8 +171,7 @@ export class EngagementEngine {
 				const name = chars.find(c => c.id === charId)?.name || charId;
 				console.log(`[Engagement] ${name} expired`);
 				this.engaged.delete(charId);
-				const msgs = this.callbacks.getMessages();
-				this.lastDisengageMsgId.set(charId, msgs.length > 0 ? msgs[msgs.length - 1].id : 0);
+				this.closeEngageWindow(charId);
 				if (cooldownMs > 0) this.cooldowns.set(charId, now + cooldownMs);
 				this.callbacks.triggerMemoryExtraction(charId);
 			}
@@ -418,37 +429,38 @@ export class EngagementEngine {
 		const msgs = this.callbacks.getMessages();
 		if (msgs.length === 0) return new Set();
 
-		const disengageMsgId = this.lastDisengageMsgId.get(characterId);
-		const engageStartMsgId = this.engageStartMsgId.get(characterId);
+		const currentStartMsgId = this.engageStartMsgId.get(characterId);
+		const historicalWindows = this.engageWindows.get(characterId) || [];
 
-		// If no tracking data, show all (character has been around the whole time)
-		if (!engageStartMsgId) {
+		// No tracking data — show all
+		if (currentStartMsgId === undefined && historicalWindows.length === 0) {
 			return new Set(msgs.map(m => m.id));
 		}
 
 		const visible = new Set<number>();
 
-		// Find engage start position in the array
-		let engageIdx = msgs.findIndex(m => m.id >= engageStartMsgId);
-		if (engageIdx === -1) engageIdx = msgs.length;
+		// Historical windows (with offset on both sides)
+		for (const [startId, endId] of historicalWindows) {
+			let startIdx = msgs.findIndex(m => m.id >= startId);
+			let endIdx = msgs.findIndex(m => m.id > endId);
+			if (startIdx === -1) continue;
+			if (endIdx === -1) endIdx = msgs.length;
 
-		// Apply offset — include some messages before engage start for context
-		const windowStart = Math.max(0, engageIdx - offset);
-
-		if (disengageMsgId) {
-			// Has a previous disengage point — include everything up to it
-			for (const msg of msgs) {
-				if (msg.id <= disengageMsgId) {
-					visible.add(msg.id);
-				} else {
-					break;
-				}
+			const from = Math.max(0, startIdx - offset);
+			const to = Math.min(msgs.length, endIdx + offset);
+			for (let i = from; i < to; i++) {
+				visible.add(msgs[i].id);
 			}
 		}
 
-		// Include from (engageStart - offset) to end
-		for (let i = windowStart; i < msgs.length; i++) {
-			visible.add(msgs[i].id);
+		// Current engagement (start - offset to end)
+		if (currentStartMsgId !== undefined) {
+			let startIdx = msgs.findIndex(m => m.id >= currentStartMsgId);
+			if (startIdx === -1) startIdx = msgs.length;
+			const from = Math.max(0, startIdx - offset);
+			for (let i = from; i < msgs.length; i++) {
+				visible.add(msgs[i].id);
+			}
 		}
 
 		return visible;
@@ -458,8 +470,7 @@ export class EngagementEngine {
 
 	handleIgnore(characterId: number) {
 		this.engaged.delete(characterId);
-		const msgs = this.callbacks.getMessages();
-		this.lastDisengageMsgId.set(characterId, msgs.length > 0 ? msgs[msgs.length - 1].id : 0);
+		this.closeEngageWindow(characterId);
 		const s = this.callbacks.getBehaviourSettings();
 		const cooldownMs = (s?.engageCooldown ?? 5) * 60 * 1000;
 		if (cooldownMs > 0) this.cooldowns.set(characterId, Date.now() + cooldownMs);

@@ -155,6 +155,7 @@ export async function extractMemories(
 			messages: [{ role: 'user', content: prompt }],
 			settings,
 			logType: 'memory-extraction',
+			userId,
 			logCharacterName: character.name
 		});
 

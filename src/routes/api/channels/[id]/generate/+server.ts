@@ -36,6 +36,7 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 	let characterId: number | undefined = body.characterId;
 	const proactive: boolean = body.proactive === true;
 	const visibleMessageIds: number[] | undefined = body.visibleMessageIds;
+	const engagedCharacterIds: number[] | undefined = body.engagedCharacterIds;
 
 	if (!characterId) {
 		// Pick a random character owned by this user
@@ -104,7 +105,7 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			character,
 			settings,
 			proactive ? 'channel-proactive' : 'channel',
-			{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive }
+			{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive, engagedCharacterIds }
 		);
 
 		// Check for *ignore* — character chooses not to respond
@@ -146,11 +147,14 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			lines.push(line);
 		}
 
+		// Filter out bracketed meta-text (e.g. [TIME GAP], [response], [system])
+		const cleanLines = lines.filter(line => !line.match(/^\[.*\]$/));
+
 		// Deduplicate: filter out lines that exactly match any of the last 20 messages
 		const recentContent = new Set(
 			conversationHistory.slice(-20).map(m => m.content.toLowerCase().trim())
 		);
-		const dedupedLines = lines.filter(line => !recentContent.has(line.toLowerCase().trim()));
+		const dedupedLines = cleanLines.filter(line => !recentContent.has(line.toLowerCase().trim()));
 
 		// If nothing left after filtering, don't create any messages
 		if (dedupedLines.length === 0) {

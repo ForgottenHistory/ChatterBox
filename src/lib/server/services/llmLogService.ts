@@ -75,9 +75,9 @@ class LlmLogService {
 					parts.push(msg.content);
 					parts.push('');
 				} else if (msg.role === 'user') {
-					parts.push(`${userName}: ${msg.content}`);
+					parts.push(`[USER]: ${msg.content}`);
 				} else if (msg.role === 'assistant') {
-					parts.push(`${characterName}: ${msg.content}`);
+					parts.push(`[ASSISTANT]: ${msg.content}`);
 				}
 			});
 
