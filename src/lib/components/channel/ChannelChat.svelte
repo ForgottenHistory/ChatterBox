@@ -138,8 +138,26 @@
 		<div class="px-4 py-4 space-y-0">
 			{#each messages as msg, i}
 				{@const prevMsg = i > 0 ? messages[i - 1] : null}
-				{@const sameSender = prevMsg && prevMsg.senderName === msg.senderName && prevMsg.role === msg.role}
+				{@const timeGap = prevMsg ? new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() : 0}
+				{@const showGap = timeGap >= 30 * 60 * 1000}
+				{@const sameSender = !showGap && prevMsg && prevMsg.senderName === msg.senderName && prevMsg.role === msg.role}
 				{@const isUser = msg.role === 'user'}
+
+				{#if showGap}
+					<div class="flex items-center gap-3 my-4 px-2">
+						<div class="flex-1 h-px bg-[var(--border-primary)]"></div>
+						<span class="text-xs text-[var(--text-muted)] flex-shrink-0">
+							{#if timeGap >= 24 * 60 * 60 * 1000}
+								{new Date(msg.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+							{:else if timeGap >= 60 * 60 * 1000}
+								{Math.round(timeGap / (60 * 60 * 1000))} hour{Math.round(timeGap / (60 * 60 * 1000)) !== 1 ? 's' : ''} later
+							{:else}
+								{Math.round(timeGap / (60 * 1000))} minutes later
+							{/if}
+						</span>
+						<div class="flex-1 h-px bg-[var(--border-primary)]"></div>
+					</div>
+				{/if}
 
 				{#if sameSender}
 					<div class="relative {compactPadding} py-0.5 group rounded">

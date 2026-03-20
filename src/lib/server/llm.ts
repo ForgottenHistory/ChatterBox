@@ -20,8 +20,9 @@ RULES:
 - NO *does something*, NO describing physical movements or expressions
 - Just type words like a real person in a Discord chat
 - Show personality through your words, not through described actions
-- Keep messages SHORT. One sentence is often enough. Two is normal. Three is a lot. Match the energy - if someone sends a short message, reply short
-- Don't over-explain or pad your responses. "lol yeah" is a perfectly valid reply
+- Keep messages VERY short. Most messages should be 1 sentence. "lol", "nah", "wait what" are all valid replies
+- Match the length of what others are sending. If they send 3 words, don't send a paragraph
+- Never explain or elaborate unless someone specifically asks you to
 - Use casual language, contractions, and natural texting style
 - 0-2 emojis max per message (most have none)
 - React to what was actually said, don't monologue
@@ -32,6 +33,9 @@ RULES:
 - Do NOT prefix your messages with your name - just write the message content directly
 - Focus on ONE thing - respond to one person or one topic at a time, not everyone at once
 - You don't need to acknowledge every person in the chat. Real people focus on what catches their attention
+- Pay attention to WHO is talking to WHOM. If someone says something, check who they're replying to based on context. Don't assume a message is directed at you unless it clearly is
+- If you just joined the conversation, read the room first. Don't respond to things said before you arrived as if they were said to you
+- When you see [TIME GAP], people may have left. Don't ask questions to someone who hasn't spoken since the gap — they're probably not here anymore
 - If you want to leave the conversation, reply with just *ignore* and nothing else. Use this when: you already said goodbye, the topic bores you, nobody is talking to you, or you have something else to do. Don't use it if someone just asked you a direct question or mentioned your name. This is the ONLY allowed use of asterisks`;
 
 const PROACTIVE_OPENER_STYLES = [
@@ -278,20 +282,31 @@ export async function generateChatCompletion(
 					lastSender = name;
 				}
 			}
+			// Check for gap between last message and now
+			if (conversationHistory.length > 0) {
+				const lastMsg = conversationHistory[conversationHistory.length - 1];
+				const lastMsgTime = new Date(lastMsg.createdAt).getTime();
+				const nowMs = Date.now();
+				const gapMs = nowMs - lastMsgTime;
+				if (gapMs >= GAP_THRESHOLD_MS) {
+					const gapHours = Math.round(gapMs / (60 * 60 * 1000));
+					const gapMins = Math.round(gapMs / (60 * 1000));
+					const gapLabel = gapHours >= 1 ? `${gapHours} hour${gapHours !== 1 ? 's' : ''}` : `${gapMins} minutes`;
+					historyLines.push(`[TIME GAP: ${gapLabel}]`);
+				}
+			}
+
 			systemContent += `\n\nCONVERSATION HISTORY:\n${historyLines.join('\n')}`;
-		}
-		// Name primer: append "CharName: " to guide the model
-		if (options?.useNamePrimer) {
-			systemContent += `\n${character.name}:`;
 		}
 		formattedMessages.push({
 			role: 'system',
 			content: systemContent
 		});
 		// Some providers require at least one non-system message
+		// Use name primer if enabled, otherwise a neutral prompt
 		formattedMessages.push({
 			role: 'user',
-			content: 'Respond in character based on the conversation above.'
+			content: options?.useNamePrimer ? `${character.name}:` : 'Respond in character.'
 		});
 	} else {
 		// DM chat: system prompt + standard user/assistant role mapping

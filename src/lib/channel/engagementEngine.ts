@@ -40,12 +40,24 @@ export class EngagementEngine {
 	private engageRollCooldown = 0;
 	private rollDepth = 0;
 	private engageRollTimer: ReturnType<typeof setTimeout> | null = null;
+	private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
 	constructor(channelId: number, callbacks: EngagementCallbacks) {
 		this.channelId = channelId;
 		this.callbacks = callbacks;
 		this.storageKey = `engagement-${channelId}`;
 		this.loadState();
+
+		// Periodic cleanup every 30s to catch expired engagements
+		this.cleanupInterval = setInterval(() => {
+			const sizeBefore = this.engaged.size;
+			if (sizeBefore === 0) return;
+			this.cleanExpired();
+			if (this.engaged.size < sizeBefore) {
+				this.callbacks.onEngagementChanged();
+				this.saveState();
+			}
+		}, 30000);
 	}
 
 	// ─── Persistence ───
@@ -482,5 +494,6 @@ export class EngagementEngine {
 	destroy() {
 		this.stopLoop();
 		this.stopPeriodicRoll();
+		if (this.cleanupInterval) { clearInterval(this.cleanupInterval); this.cleanupInterval = null; }
 	}
 }

@@ -43,6 +43,8 @@
 		getBehaviourSettings: () => behaviourSettings,
 		generateMessage: (charId, proactive) => generateCharacterMessage(charId, proactive),
 		triggerMemoryExtraction: (charId) => {
+			const charName = characters.find(c => c.id === charId)?.name || charId;
+			console.log(`[Memory] Triggering extraction for ${charName} (id: ${charId})`);
 			fetch(`/api/channels/${data.channelId}/extract-memories`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },

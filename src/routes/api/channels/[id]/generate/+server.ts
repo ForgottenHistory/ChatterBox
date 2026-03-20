@@ -146,20 +146,26 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 			lines.push(line);
 		}
 
+		// Deduplicate: filter out lines that exactly match any of the last 20 messages
+		const recentContent = new Set(
+			conversationHistory.slice(-20).map(m => m.content.toLowerCase().trim())
+		);
+		const dedupedLines = lines.filter(line => !recentContent.has(line.toLowerCase().trim()));
+
 		// If nothing left after filtering, don't create any messages
-		if (lines.length === 0) {
+		if (dedupedLines.length === 0) {
 			return json({ messages: [] });
 		}
 
 		const savedMessages = [];
-		for (let i = 0; i < lines.length; i++) {
+		for (let i = 0; i < dedupedLines.length; i++) {
 			const [msg] = await db
 				.insert(messages)
 				.values({
 					conversationId: channelId,
 					characterId: character.id,
 					role: 'assistant',
-					content: lines[i],
+					content: dedupedLines[i],
 					senderName: character.name,
 					senderAvatar: character.thumbnailData || character.imageData,
 					reasoning: i === 0 ? aiResult.reasoning : null

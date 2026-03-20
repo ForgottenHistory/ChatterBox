@@ -68,7 +68,9 @@ export async function extractMemories(
 			.where(eq(characters.id, characterId))
 			.limit(1);
 
-		if (!character) return;
+		if (!character) { logger.warn(`Memory extraction: character ${characterId} not found`); return; }
+
+		logger.info(`Memory extraction starting for ${character.name} in conversation ${conversationId}`);
 
 		// Get recent messages from this conversation (last 50)
 		const recentMessages = await db
@@ -78,7 +80,7 @@ export async function extractMemories(
 			.orderBy(desc(messages.createdAt))
 			.limit(50);
 
-		if (recentMessages.length < 3) return; // Not enough to extract from
+		if (recentMessages.length < 3) { logger.info(`Memory extraction skipped for ${character.name}: only ${recentMessages.length} messages`); return; }
 
 		// Reverse to chronological order
 		recentMessages.reverse();
