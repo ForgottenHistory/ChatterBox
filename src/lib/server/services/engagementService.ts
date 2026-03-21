@@ -213,6 +213,9 @@ class EngagementService {
 					engine.engageStartMsgId.set(s.characterId, s.startMsgId);
 				}
 			} else {
+				// Expired — save the window before deleting
+				engine.engageStartMsgId.set(s.characterId, s.startMsgId);
+				await this.closeEngageWindow(engine, s.characterId);
 				await db.delete(engagementState).where(eq(engagementState.id, s.id));
 			}
 		}
@@ -272,10 +275,6 @@ class EngagementService {
 
 	private canProactive(engine: ChannelEngine, recentMessages: Message[]): boolean {
 		if (Date.now() - engine.lastProactiveTime < PROACTIVE_COOLDOWN) return false;
-		if (recentMessages.length > 0) {
-			const lastMsgTime = new Date(recentMessages[recentMessages.length - 1].createdAt).getTime();
-			if (Date.now() - lastMsgTime < PROACTIVE_COOLDOWN) return false;
-		}
 		return true;
 	}
 
@@ -786,6 +785,65 @@ class EngagementService {
 
 		this.emitEngagementChanged(engine);
 		logger.info(`[Engagement] All cleared for channel ${channelId}`);
+	}
+
+	async moveEngagement(fromChannelId: number, toChannelId: number, userId: number): Promise<void> {
+		const fromEngine = this.engines.get(fromChannelId);
+		if (!fromEngine) { logger.warn(`[Engagement] moveEngagement: no engine for source channel ${fromChannelId}`); return; }
+
+		// Ensure target engine exists
+		const toEngine = await this.activateChannel(toChannelId, userId);
+
+		// Stop the loop on source
+		this.stopLoop(fromEngine);
+
+		// Move all engaged characters from source to target
+		const movedCharIds: number[] = [];
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId !== fromChannelId) continue;
+
+			// Close window in source channel
+			await this.closeEngageWindow(fromEngine, charId);
+
+			// Move engagement to target channel
+			this.setEngaged(charId, toChannelId, entry.expiry);
+
+			// Set up start msg in target
+			const [lastMsg] = await db.select({ id: messages.id }).from(messages)
+				.where(eq(messages.conversationId, toChannelId))
+				.orderBy(desc(messages.createdAt))
+				.limit(1);
+			toEngine.engageStartMsgId.set(charId, lastMsg?.id ?? 0);
+
+			movedCharIds.push(charId);
+		}
+
+		if (movedCharIds.length === 0) {
+			logger.warn(`[Engagement] moveEngagement: no engaged characters to move`);
+			return;
+		}
+
+		// Save both channels
+		await this.saveEngagementToDB(fromEngine);
+		await this.saveEngagementToDB(toEngine);
+
+		// Emit updates to both channels
+		this.emitEngagementChanged(fromEngine);
+		this.emitEngagementChanged(toEngine);
+
+		// Start loop on target if 2+ engaged
+		if (this.getActiveEngaged(toChannelId).length >= 2 && !toEngine.engagementLoopRunning) {
+			this.startLoop(toEngine);
+		}
+
+		// Update focus to target channel
+		this.setFocus(toChannelId);
+
+		const charNames = movedCharIds.map(id => {
+			const c = toEngine.getCharacters().find(ch => ch.id === id);
+			return c?.name || id;
+		});
+		logger.info(`[Engagement] Moved ${charNames.join(', ')} from channel ${fromChannelId} to ${toChannelId}`);
 	}
 
 	// ─── Get Current State (for client on join) ───

@@ -1,37 +1,48 @@
 <script lang="ts">
+	import type { Conversation } from '$lib/server/db/schema';
+
 	interface Props {
 		channelName: string;
 		channelDescription?: string | null;
+		channelId: number;
 		messagesCount: number;
 		generating: boolean;
 		charactersAvailable: boolean;
 		allEngaged: boolean;
 		hasEngaged: boolean;
 		membersSidebarCollapsed: boolean;
+		channels: Conversation[];
 		onExport: () => void;
 		onDebugGenerate: () => void;
 		onDebugEngage: () => void;
 		onDebugClearEngage: () => void;
 		onDebugWipe: () => void;
+		onDebugMoveEngagement: (toChannelId: number) => void;
 		onToggleMembers: () => void;
 	}
 
 	let {
 		channelName,
 		channelDescription,
+		channelId,
 		messagesCount,
 		generating,
 		charactersAvailable,
 		allEngaged,
 		hasEngaged,
 		membersSidebarCollapsed = $bindable(),
+		channels,
 		onExport,
 		onDebugGenerate,
 		onDebugEngage,
 		onDebugClearEngage,
 		onDebugWipe,
+		onDebugMoveEngagement,
 		onToggleMembers
 	}: Props = $props();
+
+	let showMoveMenu = $state(false);
+	let otherChannels = $derived(channels.filter(c => c.id !== channelId));
 </script>
 
 <div class="bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] px-6 py-3 flex items-center gap-3 flex-shrink-0">
@@ -92,6 +103,37 @@
 			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6"/>
 		</svg>
 	</button>
+	<!-- Debug: move engagement to another channel -->
+	<div class="relative">
+		<button
+			onclick={() => showMoveMenu = !showMoveMenu}
+			disabled={!hasEngaged || otherChannels.length === 0}
+			class="p-1.5 rounded-lg transition cursor-pointer text-[var(--warning)] hover:bg-[var(--warning)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+			title="Debug: Move engagement to another channel"
+		>
+			<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+			</svg>
+		</button>
+		{#if showMoveMenu}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="fixed inset-0 z-40" onclick={() => showMoveMenu = false}></div>
+			<div class="absolute right-0 top-full mt-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl py-1 min-w-[180px] z-50">
+				<div class="px-3 py-1.5 text-xs font-semibold text-[var(--text-muted)] uppercase">Move to...</div>
+				{#each otherChannels as ch}
+					<button
+						onclick={() => { onDebugMoveEngagement(ch.id); showMoveMenu = false; }}
+						class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition cursor-pointer"
+					>
+						<svg class="w-4 h-4 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
+						</svg>
+						{ch.name}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	</div>
 	<!-- Debug: wipe chat + memories -->
 	<button
 		onclick={onDebugWipe}

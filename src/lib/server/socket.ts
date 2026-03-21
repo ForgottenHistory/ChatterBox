@@ -112,6 +112,12 @@ export function initSocketServer(httpServer: Server) {
 			const svc = getEngagementService();
 			if (svc) await svc.debugClear(data.channelId);
 		});
+
+		socket.on('channel-move-engagement', async (data: { fromChannelId: number; toChannelId: number }) => {
+			if (!userId) return;
+			const svc = getEngagementService();
+			if (svc) await svc.moveEngagement(data.fromChannelId, data.toChannelId, userId);
+		});
 	});
 
 	logger.success('Socket.IO server initialized');

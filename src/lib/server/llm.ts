@@ -206,6 +206,20 @@ export async function generateChatCompletion(
 	if (messageType === 'channel' || messageType === 'channel-proactive') {
 		let systemContent = finalSystemPrompt.trim();
 
+		// List all channels in the server
+		try {
+			const allChannels = await db.select({ name: conversations.name, description: conversations.description })
+				.from(conversations)
+				.where(and(eq(conversations.userId, settings.userId), eq(conversations.conversationType, 'channel')));
+			if (allChannels.length > 0) {
+				const channelLines = allChannels.map(c => {
+					const current = options?.channelName && c.name === options.channelName ? ' (you are here)' : '';
+					return c.description ? `#${c.name} — ${c.description}${current}` : `#${c.name}${current}`;
+				});
+				systemContent += `\n\nCHANNELS:\n${channelLines.join('\n')}`;
+			}
+		} catch {}
+
 		// Add "People in chat" — engaged characters + the user
 		if (options?.engagedCharacterIds && options.engagedCharacterIds.length > 0) {
 			try {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import type { Message, Character } from '$lib/server/db/schema';
+	import type { Message, Character, Conversation } from '$lib/server/db/schema';
 	import MainLayout from '$lib/components/MainLayout.svelte';
 	import ChannelHeader from '$lib/components/channel/ChannelHeader.svelte';
 	import ChannelChat from '$lib/components/channel/ChannelChat.svelte';
@@ -11,7 +11,7 @@
 	import { getCharactersCache, isCharactersCacheLoaded } from '$lib/stores/characters';
 	import {
 		initSocket, joinChannel, leaveChannel, emitUserMessage,
-		emitDebugEngage, emitDebugClear,
+		emitDebugEngage, emitDebugClear, emitMoveEngagement,
 		onChannelNewMessage, onChannelTyping, onChannelEngagementChanged,
 		removeChannelListeners
 	} from '$lib/stores/socket';
@@ -27,6 +27,7 @@
 	let membersSidebarCollapsed = $state(false);
 	let avatarStyle = $state<'circle' | 'rounded'>('circle');
 	let chatComponent = $state<ChannelChat | undefined>();
+	let channels = $state<Conversation[]>([]);
 
 	// Engagement state from server
 	let engagedMap = $state<Record<number, number>>({});
@@ -59,6 +60,7 @@
 	onMount(() => {
 		initSocket();
 		loadSettings();
+		loadChannels();
 		if (!isCharactersCacheLoaded()) loadCharacters();
 
 		const saved = localStorage.getItem('channelMembersSidebar');
@@ -124,6 +126,9 @@
 	async function loadCharacters() {
 		try { const res = await fetch('/api/characters'); const r = await res.json(); characters = r.characters || []; } catch (e) { console.error('Failed to load characters:', e); }
 	}
+	async function loadChannels() {
+		try { const res = await fetch('/api/channels'); if (res.ok) { const r = await res.json(); channels = r.channels || []; } } catch {}
+	}
 	async function loadMessages() {
 		try {
 			const res = await fetch(`/api/channels/${data.channelId}/messages`);
@@ -187,17 +192,20 @@
 		<ChannelHeader
 			channelName={data.channelName}
 			channelDescription={data.channelDescription}
+			channelId={data.channelId}
 			messagesCount={messages.length}
 			generating={false}
 			charactersAvailable={characters.length > 0}
 			{allEngaged}
 			{hasEngaged}
+			{channels}
 			bind:membersSidebarCollapsed
 			onExport={exportChat}
 			onDebugGenerate={() => emitDebugEngage(data.channelId)}
 			onDebugEngage={() => emitDebugEngage(data.channelId)}
 			onDebugClearEngage={() => emitDebugClear(data.channelId)}
 			onDebugWipe={debugWipeChat}
+			onDebugMoveEngagement={(toId) => emitMoveEngagement(data.channelId, toId)}
 			onToggleMembers={() => membersSidebarCollapsed = !membersSidebarCollapsed}
 		/>
 

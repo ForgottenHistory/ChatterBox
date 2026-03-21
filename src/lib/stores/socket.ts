@@ -108,6 +108,11 @@ export function emitDebugClear(channelId: number) {
 	socket.emit('channel-debug-clear', { channelId });
 }
 
+export function emitMoveEngagement(fromChannelId: number, toChannelId: number) {
+	if (!socket) return;
+	socket.emit('channel-move-engagement', { fromChannelId, toChannelId });
+}
+
 export function onChannelNewMessage(callback: (message: any) => void) {
 	if (!socket) return;
 	socket.on('channel-new-message', callback);
