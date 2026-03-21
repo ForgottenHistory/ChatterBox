@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import { conversations, messages, characters, llmSettings, users } from '$lib/server/db/schema';
+import { conversations, characters } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { generateChatCompletion } from '$lib/server/llm';
+import { generateChannelMessage } from '$lib/server/services/channelGenerationService';
 
 // POST - Generate a character message in a channel
 export const POST: RequestHandler = async ({ params, cookies, request }) => {
@@ -53,148 +53,18 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 		characterId = randomChar.id;
 	}
 
-	// Get the character
-	const [character] = await db
-		.select()
-		.from(characters)
-		.where(
-			and(
-				eq(characters.id, characterId),
-				eq(characters.userId, parseInt(userId))
-			)
-		)
-		.limit(1);
-
-	if (!character) {
-		return json({ error: 'Character not found' }, { status: 404 });
-	}
-
-	// Get conversation history (filtered by visible message IDs if provided)
-	let conversationHistory = await db
-		.select()
-		.from(messages)
-		.where(eq(messages.conversationId, channelId))
-		.orderBy(messages.createdAt);
-
-	if (visibleMessageIds && visibleMessageIds.length > 0) {
-		const visibleSet = new Set(visibleMessageIds);
-		conversationHistory = conversationHistory.filter(m => visibleSet.has(m.id));
-	}
-
-	// Get LLM settings
-	const [settings] = await db
-		.select()
-		.from(llmSettings)
-		.where(eq(llmSettings.userId, parseInt(userId)))
-		.limit(1);
-
-	if (!settings) {
-		return json({ error: 'LLM settings not configured' }, { status: 404 });
-	}
-
-	// Trim conversation history to fit within the context window.
-	// Reserve space for the completion (maxTokens). Estimate tokens as chars/4.
-	// Drop from the oldest end so entire old engagement windows fall off naturally.
-	if (settings.contextWindow && settings.contextWindow > 0) {
-		const budget = Math.max(0, settings.contextWindow - (settings.maxTokens ?? 300));
-		let totalChars = 0;
-		let keepFrom = conversationHistory.length; // index of first message to keep
-		for (let i = conversationHistory.length - 1; i >= 0; i--) {
-			const msgChars = conversationHistory[i].content.length + 20; // +20 for name/role overhead
-			if (totalChars + msgChars > budget * 4) break;
-			totalChars += msgChars;
-			keepFrom = i;
-		}
-		conversationHistory = conversationHistory.slice(keepFrom);
-	}
-
-	// Get behaviour settings
-	const [user] = await db
-		.select({ useNamePrimer: users.useNamePrimer, compactHistory: users.compactHistory })
-		.from(users)
-		.where(eq(users.id, parseInt(userId)))
-		.limit(1);
-
 	try {
-		const aiResult = await generateChatCompletion(
-			conversationHistory,
-			character,
-			settings,
-			proactive ? 'channel-proactive' : 'channel',
-			{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive, engagedCharacterIds }
-		);
+		const result = await generateChannelMessage(channelId, parseInt(userId), characterId, {
+			proactive,
+			visibleMessageIds,
+			engagedCharacterIds
+		});
 
-		// Check for *ignore* — character chooses not to respond
-		// Must be the first non-empty line; also strip it from the output if mixed with real content
-		const contentLines = aiResult.content.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
-		const firstLine = (contentLines[0] || '').toLowerCase();
-		if (firstLine === '*ignore*' || firstLine === 'ignore' || firstLine === '*ignore*.') {
-			return json({ messages: [], ignored: true, characterId: character.id });
-		}
-		// Also strip any stray *ignore* lines from the rest
-		const cleanedContent = contentLines.filter(l => {
-			const lower = l.toLowerCase();
-			return lower !== '*ignore*' && lower !== 'ignore';
-		}).join('\n');
-
-		// Post-process: split on newlines, strip "Name: " prefixes
-		// Stop at the first line that belongs to someone else (everything after is contaminated)
-		const charName = character.name.toLowerCase();
-		const rawLines = cleanedContent
-			.split(/\n+/)
-			.map((line: string) => line.trim())
-			.filter((line: string) => line.length > 0);
-
-		const lines: string[] = [];
-		for (const line of rawLines) {
-			const colonIdx = line.indexOf(':');
-			if (colonIdx > 0 && colonIdx < 50) {
-				const prefix = line.substring(0, colonIdx).trim().toLowerCase();
-				if (prefix === charName) {
-					// Character's own line — strip the name prefix
-					lines.push(line.substring(colonIdx + 1).trim());
-					continue;
-				}
-				// Someone else's line — stop processing entirely
-				if (!prefix.includes('http') && !prefix.includes('//')) {
-					break;
-				}
-			}
-			lines.push(line);
+		if (result.ignored) {
+			return json({ messages: [], ignored: true, characterId: result.characterId });
 		}
 
-		// Filter out bracketed meta-text (e.g. [TIME GAP], [response], [system])
-		const cleanLines = lines.filter(line => !line.match(/^\[.*\]$/));
-
-		// Deduplicate: filter out lines that exactly match any of the last 20 messages
-		const recentContent = new Set(
-			conversationHistory.slice(-20).map(m => m.content.toLowerCase().trim())
-		);
-		const dedupedLines = cleanLines.filter(line => !recentContent.has(line.toLowerCase().trim()));
-
-		// If nothing left after filtering, don't create any messages
-		if (dedupedLines.length === 0) {
-			return json({ messages: [] });
-		}
-
-		const savedMessages = [];
-		for (let i = 0; i < dedupedLines.length; i++) {
-			const [msg] = await db
-				.insert(messages)
-				.values({
-					conversationId: channelId,
-					characterId: character.id,
-					role: 'assistant',
-					content: dedupedLines[i],
-					senderName: character.name,
-					senderAvatar: character.thumbnailData || character.imageData,
-					reasoning: i === 0 ? aiResult.reasoning : null
-				})
-				.returning();
-			savedMessages.push(msg);
-		}
-
-		return json({ messages: savedMessages });
+		return json({ messages: result.messages });
 	} catch (error: any) {
 		console.error('Failed to generate channel message:', error);
 		return json({ error: error.message || 'Failed to generate response' }, { status: 500 });

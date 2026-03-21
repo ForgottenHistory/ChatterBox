@@ -2,12 +2,28 @@ import { Server as SocketIOServer } from 'socket.io';
 import type { Server } from 'http';
 import { logger } from './utils/logger';
 
+// The engagement service stores itself in global.__engagementService.
+// We read it lazily here to avoid $lib import resolution issues
+// (this file is loaded by the vite plugin at config time).
+function getEngagementService(): any {
+	return (global as any).__engagementService || null;
+}
+
 // Use global to persist Socket.IO instance across hot reloads
 declare global {
 	var __socketio: SocketIOServer | undefined;
 }
 
 let io: SocketIOServer | null = global.__socketio || null;
+
+/**
+ * Parse userId from cookie string
+ */
+function parseCookieUserId(cookieStr?: string): number | null {
+	if (!cookieStr) return null;
+	const match = cookieStr.match(/(?:^|;\s*)userId=(\d+)/);
+	return match ? parseInt(match[1]) : null;
+}
 
 /**
  * Initialize Socket.IO server
@@ -28,23 +44,70 @@ export function initSocketServer(httpServer: Server) {
 	// Store in global for persistence across hot reloads
 	global.__socketio = io;
 
+	// Auth middleware — attach userId to socket
+	io.use((socket, next) => {
+		const userId = parseCookieUserId(socket.handshake.headers.cookie);
+		socket.data.userId = userId || null;
+		next();
+	});
+
 	io.on('connection', (socket) => {
-		logger.info(`Socket connected: ${socket.id}`);
+		const userId: number | null = socket.data.userId;
+		logger.info(`Socket connected: ${socket.id} (user ${userId || 'unknown'})`);
 
 		socket.on('disconnect', () => {
 			logger.info(`Socket disconnected: ${socket.id}`);
 		});
 
-		// Join a conversation room
+		// ─── Legacy conversation room events (used by DM chat) ───
+
 		socket.on('join-conversation', (conversationId: number) => {
 			socket.join(`conversation-${conversationId}`);
 			logger.debug(`Socket ${socket.id} joined conversation ${conversationId}`);
 		});
 
-		// Leave a conversation room
 		socket.on('leave-conversation', (conversationId: number) => {
 			socket.leave(`conversation-${conversationId}`);
 			logger.debug(`Socket ${socket.id} left conversation ${conversationId}`);
+		});
+
+		// ─── Channel engagement events ───
+
+		socket.on('join-channel', async (data: { channelId: number }) => {
+			const { channelId } = data;
+			socket.join(`conversation-${channelId}`);
+			logger.info(`Socket ${socket.id} joined channel ${channelId}`);
+
+			if (!userId) { logger.warn('[Socket] join-channel: no userId'); return; }
+			const svc = getEngagementService();
+			if (!svc) { logger.warn('[Socket] join-channel: engagement service not available'); return; }
+			await svc.activateChannel(channelId, userId);
+			const state = svc.getState(channelId);
+			socket.emit('channel-engagement-changed', state);
+		});
+
+		socket.on('leave-channel', (data: { channelId: number }) => {
+			const { channelId } = data;
+			socket.leave(`conversation-${channelId}`);
+			logger.info(`Socket ${socket.id} left channel ${channelId}`);
+		});
+
+		socket.on('channel-user-message', async (data: { channelId: number; text: string }) => {
+			if (!userId) return;
+			const svc = getEngagementService();
+			if (svc) await svc.onUserMessage(data.channelId, userId, data.text);
+		});
+
+		socket.on('channel-debug-engage', async (data: { channelId: number }) => {
+			logger.info(`[Socket] channel-debug-engage received for channel ${data.channelId}`);
+			const svc = getEngagementService();
+			if (!svc) { logger.warn('[Socket] Engagement service not available'); return; }
+			await svc.debugEngageRandom(data.channelId);
+		});
+
+		socket.on('channel-debug-clear', async (data: { channelId: number }) => {
+			const svc = getEngagementService();
+			if (svc) await svc.debugClear(data.channelId);
 		});
 	});
 
@@ -57,6 +120,9 @@ export function initSocketServer(httpServer: Server) {
  * Get Socket.IO server instance
  */
 export function getSocketServer(): SocketIOServer | null {
+	if (!io && global.__socketio) {
+		io = global.__socketio;
+	}
 	return io;
 }
 
@@ -64,14 +130,9 @@ export function getSocketServer(): SocketIOServer | null {
  * Emit a new message to a conversation room
  */
 export function emitMessage(conversationId: number, message: any) {
-	// Try to get from global if not set
 	if (!io && global.__socketio) {
 		io = global.__socketio;
-		console.log('🔍 Retrieved Socket.IO from global');
 	}
-
-	console.log('🔍 emitMessage called, io instance:', io ? 'EXISTS' : 'NULL');
-	console.log('🔍 global.__socketio:', global.__socketio ? 'EXISTS' : 'NULL');
 
 	if (!io) {
 		logger.warn('Socket.IO not initialized, cannot emit message');
@@ -86,7 +147,6 @@ export function emitMessage(conversationId: number, message: any) {
  * Emit typing indicator to a conversation room
  */
 export function emitTyping(conversationId: number, isTyping: boolean) {
-	// Try to get from global if not set
 	if (!io && global.__socketio) {
 		io = global.__socketio;
 	}

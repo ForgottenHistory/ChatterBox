@@ -7,9 +7,14 @@
 	import ChannelMembersSidebar from '$lib/components/channel/ChannelMembersSidebar.svelte';
 	import ReasoningModal from '$lib/components/channel/ReasoningModal.svelte';
 	import MemoriesModal from '$lib/components/channel/MemoriesModal.svelte';
-	import { EngagementEngine } from '$lib/channel/engagementEngine';
 	import { onMount, tick } from 'svelte';
 	import { getCharactersCache, isCharactersCacheLoaded } from '$lib/stores/characters';
+	import {
+		initSocket, joinChannel, leaveChannel, emitUserMessage,
+		emitDebugEngage, emitDebugClear,
+		onChannelNewMessage, onChannelTyping, onChannelEngagementChanged,
+		removeChannelListeners
+	} from '$lib/stores/socket';
 
 	let { data }: { data: PageData } = $props();
 
@@ -18,12 +23,14 @@
 	let characters = $state<Character[]>(getCharactersCache());
 	let loading = $state(true);
 	let sending = $state(false);
-	let generating = $state(false);
 	let typingCharacter = $state<string | null>(null);
 	let membersSidebarCollapsed = $state(false);
 	let avatarStyle = $state<'circle' | 'rounded'>('circle');
 	let chatComponent = $state<ChannelChat | undefined>();
-	let behaviourSettings = $state<any>(null);
+
+	// Engagement state from server
+	let engagedMap = $state<Record<number, number>>({});
+	let engagementVersion = $state(0);
 
 	// Modals
 	let showReasoningForId = $state<number | null>(null);
@@ -33,129 +40,61 @@
 		showReasoningForId ? messages.find(m => m.id === showReasoningForId)?.reasoning || '' : ''
 	);
 
-	// Reactivity trigger for engagement UI updates
-	let engagementVersion = $state(0);
-
-	// ─── Engagement Engine ───
-	const engine = new EngagementEngine(data.channelId, {
-		getMessages: () => messages,
-		getCharacters: () => characters,
-		getBehaviourSettings: () => behaviourSettings,
-		generateMessage: (charId, proactive) => generateCharacterMessage(charId, proactive),
-		triggerMemoryExtraction: (charId) => {
-			const charName = characters.find(c => c.id === charId)?.name || charId;
-			console.log(`[Memory] Triggering extraction for ${charName} (id: ${charId})`);
-			fetch(`/api/channels/${data.channelId}/extract-memories`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ characterId: charId })
-			}).catch(err => console.error('[Memory] Extraction failed:', err));
-		},
-		onEngagementChanged: () => { engagementVersion++; engine.saveState(); }
-	});
-
-	// Watch for loop start conditions
-	$effect(() => {
+	let engagedIds = $derived.by(() => {
 		const _v = engagementVersion;
-		const _s = behaviourSettings;
-		engine.checkLoop();
+		const now = Date.now();
+		return new Set(
+			Object.entries(engagedMap)
+				.filter(([_, expiry]) => now < expiry)
+				.map(([id]) => parseInt(id))
+		);
 	});
 
-	// Start periodic roll when ready
-	$effect(() => {
-		if (behaviourSettings && characters.length > 0) {
-			engine.startPeriodicRoll();
-		}
-	});
+	let hasEngaged = $derived(engagedIds.size > 0);
+	let allEngaged = $derived(characters.every(c => engagedIds.has(c.id)));
 
-	// ─── Message Generation ───
-	function sleep(ms: number) { return new Promise(resolve => setTimeout(resolve, ms)); }
-	let generateQueue: Array<{ characterId?: number; proactive: boolean }> = [];
+	// ─── Socket.IO Setup ───
+	onMount(() => {
+		const socket = initSocket();
+		if (socket) {
+			joinChannel(data.channelId);
 
-	async function generateCharacterMessage(characterId?: number, proactive = false) {
-		if (generating) {
-			generateQueue.push({ characterId, proactive });
-			return;
-		}
-		generating = true;
-
-		const pickedCharacter = characterId
-			? characters.find(c => c.id === characterId) || null
-			: characters.length > 0 ? characters[Math.floor(Math.random() * characters.length)] : null;
-
-		await sleep(800 + Math.random() * 1200);
-		typingCharacter = pickedCharacter?.name || 'Someone';
-		await tick();
-		chatComponent?.scrollToBottom();
-
-		try {
-			const response = await fetch(`/api/channels/${data.channelId}/generate`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					characterId: pickedCharacter?.id,
-					proactive,
-					engagedCharacterIds: engine.getActiveEngaged(),
-					visibleMessageIds: pickedCharacter?.id
-						? Array.from(engine.getVisibleMessageIds(pickedCharacter.id, behaviourSettings?.engageContextOffset ?? 10))
-						: undefined
-				})
+			onChannelNewMessage((message: Message) => {
+				messages = [...messages, message];
+				tick().then(() => chatComponent?.scrollToBottom());
 			});
 
-			if (response.ok) {
-				const result = await response.json();
-
-				if (result.ignored && result.characterId) {
-					engine.handleIgnore(result.characterId);
+			onChannelTyping(({ characterName, isTyping }) => {
+				typingCharacter = isTyping ? characterName : null;
+				if (isTyping) {
+					tick().then(() => chatComponent?.scrollToBottom());
 				}
+			});
 
-				const newMessages: Message[] = result.messages || [];
-				if (newMessages.length > 0) typingCharacter = newMessages[0].senderName || typingCharacter;
-
-				for (let i = 0; i < newMessages.length; i++) {
-					if (i > 0) await sleep(1000 + Math.random() * 1500);
-					messages = [...messages, newMessages[i]];
-					typingCharacter = i < newMessages.length - 1 ? (newMessages[0].senderName || typingCharacter) : null;
-					await tick();
-					chatComponent?.scrollToBottom();
-				}
-			} else {
-				const err = await response.json();
-				console.error('Generate failed:', err.error);
-			}
-		} catch (error) {
-			console.error('Failed to generate:', error);
-		} finally {
-			generating = false;
-			typingCharacter = null;
-
-			if (generateQueue.length > 0) {
-				const next = generateQueue.shift()!;
-				await generateCharacterMessage(next.characterId, next.proactive);
-			}
+			onChannelEngagementChanged(({ engaged, cooldowns }) => {
+				engagedMap = engaged;
+				engagementVersion++;
+			});
 		}
-	}
 
-	// ─── Data Loading ───
-	onMount(() => {
 		loadMessages();
 		loadSettings();
-		loadBehaviourSettings();
 		if (!isCharactersCacheLoaded()) loadCharacters();
 
 		const saved = localStorage.getItem('channelMembersSidebar');
 		if (saved !== null) membersSidebarCollapsed = saved === 'collapsed';
 
-		return () => engine.destroy();
+		return () => {
+			leaveChannel(data.channelId);
+			removeChannelListeners();
+		};
 	});
 
 	$effect(() => {
 		localStorage.setItem('channelMembersSidebar', membersSidebarCollapsed ? 'collapsed' : 'expanded');
 	});
 
-	async function loadBehaviourSettings() {
-		try { const res = await fetch('/api/behaviour-settings'); if (res.ok) behaviourSettings = await res.json(); } catch {}
-	}
+	// ─── Data Loading ───
 	async function loadSettings() {
 		try { const res = await fetch('/api/settings'); if (res.ok) { const d = await res.json(); avatarStyle = d.avatarStyle || 'circle'; } } catch {}
 	}
@@ -186,23 +125,8 @@
 				messages = [...messages, r.message];
 				await tick();
 				chatComponent?.scrollToBottom();
-
-				if (engine.getActiveEngaged().length > 0) {
-					engine.triggerResponse(text);
-					// Chance to pull another character in
-					const joinChance = (behaviourSettings?.joinChancePerMessage ?? 1) / 100;
-					if (joinChance > 0 && Math.random() < joinChance) {
-						const available = characters.filter(c =>
-							!engine.engaged.has(c.id) && !engine.cooldowns.has(c.id) && engine.getCharacterStatus(c) !== 'offline'
-						);
-						if (available.length > 0) {
-							const char = available[Math.floor(Math.random() * available.length)];
-							engine.engageCharacter(char.id, false);
-						}
-					}
-				} else {
-					engine.rollEngagement();
-				}
+				// Tell server to trigger engagement response
+				emitUserMessage(data.channelId, text);
 			}
 		} catch (e) { console.error('Failed to send:', e); }
 		finally { sending = false; setTimeout(() => chatComponent?.focusInput(), 0); }
@@ -214,7 +138,7 @@
 			const res = await fetch(`/api/channels/${data.channelId}/wipe`, { method: 'POST' });
 			if (res.ok) {
 				messages = [];
-				await engine.debugClear();
+				emitDebugClear(data.channelId);
 				console.log('[Debug] Chat and memories wiped');
 			}
 		} catch (e) { console.error('Failed to wipe:', e); }
@@ -241,15 +165,15 @@
 			channelName={data.channelName}
 			channelDescription={data.channelDescription}
 			messagesCount={messages.length}
-			{generating}
+			generating={false}
 			charactersAvailable={characters.length > 0}
-			allEngaged={characters.every(c => engine.engaged.has(c.id) || engine.getCharacterStatus(c) === 'offline')}
-			hasEngaged={(() => { const _v = engagementVersion; return engine.getActiveEngaged().length > 0; })()}
+			{allEngaged}
+			{hasEngaged}
 			bind:membersSidebarCollapsed
 			onExport={exportChat}
-			onDebugGenerate={() => generateCharacterMessage()}
-			onDebugEngage={() => engine.debugEngageRandom()}
-			onDebugClearEngage={() => engine.debugClear()}
+			onDebugGenerate={() => emitDebugEngage(data.channelId)}
+			onDebugEngage={() => emitDebugEngage(data.channelId)}
+			onDebugClearEngage={() => emitDebugClear(data.channelId)}
 			onDebugWipe={debugWipeChat}
 			onToggleMembers={() => membersSidebarCollapsed = !membersSidebarCollapsed}
 		/>
@@ -276,7 +200,7 @@
 					{characters}
 					user={data.user}
 					{avatarStyle}
-					engagedIds={(() => { const _v = engagementVersion; return new Set(engine.getActiveEngaged()); })()}
+					{engagedIds}
 					onShowMemories={(id, name) => { memoriesCharacterId = id; memoriesCharacterName = name; }}
 				/>
 			{/if}

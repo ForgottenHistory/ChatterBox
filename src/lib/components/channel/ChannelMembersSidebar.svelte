@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { Character, User } from '$lib/server/db/schema';
 	type UserWithoutPassword = Omit<User, 'passwordHash'>;
 
@@ -11,6 +12,13 @@
 	}
 
 	let { characters, user, avatarStyle = 'circle', engagedIds = new Set(), onShowMemories }: Props = $props();
+
+	// Tick every 60s to refresh schedule-based statuses
+	let tick = $state(0);
+	onMount(() => {
+		const interval = setInterval(() => tick++, 60000);
+		return () => clearInterval(interval);
+	});
 
 	let avatarClass = $derived(avatarStyle === 'rounded' ? 'rounded-lg' : 'rounded-full');
 	let memberAvatarSize = $derived(avatarStyle === 'rounded' ? 'w-7 h-9' : 'w-8 h-8');
@@ -65,7 +73,7 @@
 		return { character, status: 'online', activity: '' };
 	}
 
-	let characterStatuses = $derived(characters.map(getCharacterStatus));
+	let characterStatuses = $derived.by(() => { const _t = tick; return characters.map(getCharacterStatus); });
 
 	let onlineMembers = $derived(characterStatuses.filter(c => c.status === 'online'));
 	let awayMembers = $derived(characterStatuses.filter(c => c.status === 'away'));

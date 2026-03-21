@@ -1,4 +1,5 @@
 import { logger } from '$lib/server/utils/logger';
+import '$lib/server/services/engagementService'; // Ensure singleton is created and stored in global
 import type { Handle } from '@sveltejs/kit';
 
 // Initialize logger on server start

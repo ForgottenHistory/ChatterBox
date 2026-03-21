@@ -213,11 +213,15 @@ export async function generateChatCompletion(
 				const otherIds = options.engagedCharacterIds.filter(id => id !== character.id);
 				let peopleLines: string[] = [];
 
-				// Add the user
-				if (userInfo.description) {
-					peopleLines.push(`${userName} (the user): ${userInfo.description}`);
-				} else {
-					peopleLines.push(`${userName} (the user)`);
+				// Add the user only if they've spoken in the last 30 messages
+				const recentMessages = conversationHistory.slice(-30);
+				const userSpoke = recentMessages.some(m => m.role === 'user');
+				if (userSpoke) {
+					if (userInfo.description) {
+						peopleLines.push(`${userName} (the user): ${userInfo.description}`);
+					} else {
+						peopleLines.push(`${userName} (the user)`);
+					}
 				}
 
 				if (otherIds.length > 0) {
