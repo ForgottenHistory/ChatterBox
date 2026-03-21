@@ -343,6 +343,33 @@ export const characterMemories = sqliteTable('character_memories', {
 		.$defaultFn(() => new Date())
 });
 
+export const engagementWindows = sqliteTable('engagement_windows', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	channelId: integer('channel_id')
+		.notNull()
+		.references(() => conversations.id, { onDelete: 'cascade' }),
+	characterId: integer('character_id')
+		.notNull()
+		.references(() => characters.id, { onDelete: 'cascade' }),
+	startMsgId: integer('start_msg_id').notNull(),
+	endMsgId: integer('end_msg_id').notNull(),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.$defaultFn(() => new Date())
+});
+
+export const engagementState = sqliteTable('engagement_state', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	channelId: integer('channel_id')
+		.notNull()
+		.references(() => conversations.id, { onDelete: 'cascade' }),
+	characterId: integer('character_id')
+		.notNull()
+		.references(() => characters.id, { onDelete: 'cascade' }),
+	engagedUntil: integer('engaged_until').notNull(), // epoch ms expiry
+	startMsgId: integer('start_msg_id').notNull() // current engagement start
+});
+
 export const llmUsageStats = sqliteTable('llm_usage_stats', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	userId: integer('user_id')
@@ -397,5 +424,9 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type CharacterMemory = typeof characterMemories.$inferSelect;
 export type NewCharacterMemory = typeof characterMemories.$inferInsert;
+export type EngagementWindow = typeof engagementWindows.$inferSelect;
+export type NewEngagementWindow = typeof engagementWindows.$inferInsert;
+export type EngagementState = typeof engagementState.$inferSelect;
+export type NewEngagementState = typeof engagementState.$inferInsert;
 export type LlmUsageStat = typeof llmUsageStats.$inferSelect;
 export type NewLlmUsageStat = typeof llmUsageStats.$inferInsert;

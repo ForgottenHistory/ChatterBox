@@ -68,8 +68,8 @@ function parseSchedule(text: string): Record<string, TimeBlock[]> {
 		const line = rawLine.trim();
 		if (!line) continue;
 
-		// Check for day header
-		const dayMatch = line.match(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*:?\s*$/i);
+		// Check for day header (e.g. "MONDAY:", "## MONDAY", "**MONDAY**", "--- MONDAY ---")
+		const dayMatch = line.match(/^[\s#*\-]*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)[\s#*:\-]*$/i);
 		if (dayMatch) {
 			currentDay = dayMatch[1].toLowerCase();
 			if (!schedule[currentDay]) schedule[currentDay] = [];
@@ -87,11 +87,12 @@ function parseSchedule(text: string): Record<string, TimeBlock[]> {
 			if (status === 'OFLINE') status = 'OFFLINE';
 			if (status === 'AWY') status = 'AWAY';
 
+			const activity = blockMatch[4].trim().replace(/~~(.+?)~~/g, '$1');
 			schedule[currentDay].push({
 				start: blockMatch[1].padStart(5, '0'),
 				end: blockMatch[2].padStart(5, '0'),
 				status: status.toLowerCase() as TimeBlock['status'],
-				activity: blockMatch[4].trim()
+				activity
 			});
 		}
 	}

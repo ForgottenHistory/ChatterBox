@@ -55,7 +55,8 @@
 
 			const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 			for (const block of blocks) {
-				if (timeStr >= block.start && timeStr < block.end) {
+				const matches = block.end === '00:00' ? timeStr >= block.start : timeStr >= block.start && timeStr < block.end;
+				if (matches) {
 					return { character, status: block.status, activity: block.activity || '' };
 				}
 			}
@@ -101,7 +102,7 @@
 			if (!blocks) return [];
 
 			const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-			const currentIdx = blocks.findIndex((b: any) => timeStr >= b.start && timeStr < b.end);
+			const currentIdx = blocks.findIndex((b: any) => b.end === '00:00' ? timeStr >= b.start : timeStr >= b.start && timeStr < b.end);
 			if (currentIdx === -1) return [];
 
 			return blocks.slice(currentIdx + 1, currentIdx + 1 + count);

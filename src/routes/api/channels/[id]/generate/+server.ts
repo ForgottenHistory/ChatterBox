@@ -92,6 +92,22 @@ export const POST: RequestHandler = async ({ params, cookies, request }) => {
 		return json({ error: 'LLM settings not configured' }, { status: 404 });
 	}
 
+	// Trim conversation history to fit within the context window.
+	// Reserve space for the completion (maxTokens). Estimate tokens as chars/4.
+	// Drop from the oldest end so entire old engagement windows fall off naturally.
+	if (settings.contextWindow && settings.contextWindow > 0) {
+		const budget = Math.max(0, settings.contextWindow - (settings.maxTokens ?? 300));
+		let totalChars = 0;
+		let keepFrom = conversationHistory.length; // index of first message to keep
+		for (let i = conversationHistory.length - 1; i >= 0; i--) {
+			const msgChars = conversationHistory[i].content.length + 20; // +20 for name/role overhead
+			if (totalChars + msgChars > budget * 4) break;
+			totalChars += msgChars;
+			keepFrom = i;
+		}
+		conversationHistory = conversationHistory.slice(keepFrom);
+	}
+
 	// Get behaviour settings
 	const [user] = await db
 		.select({ useNamePrimer: users.useNamePrimer, compactHistory: users.compactHistory })

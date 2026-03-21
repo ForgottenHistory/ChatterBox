@@ -214,7 +214,7 @@
 			const res = await fetch(`/api/channels/${data.channelId}/wipe`, { method: 'POST' });
 			if (res.ok) {
 				messages = [];
-				engine.debugClear();
+				await engine.debugClear();
 				console.log('[Debug] Chat and memories wiped');
 			}
 		} catch (e) { console.error('Failed to wipe:', e); }

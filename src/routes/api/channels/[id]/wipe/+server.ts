@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import { conversations, messages, characterMemories } from '$lib/server/db/schema';
+import { conversations, messages, characterMemories, engagementWindows, engagementState } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // POST - Wipe all messages and character memories for a channel
@@ -35,6 +35,10 @@ export const POST: RequestHandler = async ({ params, cookies }) => {
 
 	// Delete all character memories sourced from this channel
 	await db.delete(characterMemories).where(eq(characterMemories.sourceConversationId, channelId));
+
+	// Delete all engagement data for this channel
+	await db.delete(engagementWindows).where(eq(engagementWindows.channelId, channelId));
+	await db.delete(engagementState).where(eq(engagementState.channelId, channelId));
 
 	return json({ success: true });
 };

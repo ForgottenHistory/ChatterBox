@@ -35,18 +35,19 @@ export class EngagementEngine {
 
 	private callbacks: EngagementCallbacks;
 	private channelId: number;
-	private storageKey: string;
 	private engagementTimer: ReturnType<typeof setTimeout> | null = null;
 	private engagementLoopRunning = false;
 	private engageRollCooldown = 0;
 	private rollDepth = 0;
 	private engageRollTimer: ReturnType<typeof setTimeout> | null = null;
 	private cleanupInterval: ReturnType<typeof setInterval> | null = null;
+	private pendingWindows: Array<{ characterId: number; startMsgId: number; endMsgId: number }> = [];
+	private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	private loaded = false;
 
 	constructor(channelId: number, callbacks: EngagementCallbacks) {
 		this.channelId = channelId;
 		this.callbacks = callbacks;
-		this.storageKey = `engagement-${channelId}`;
 		this.loadState();
 
 		// Periodic cleanup every 30s to catch expired engagements
@@ -63,9 +64,54 @@ export class EngagementEngine {
 
 	// ─── Persistence ───
 
-	private loadState() {
+	private async loadState() {
+		// Try loading from server first
 		try {
-			const saved = localStorage.getItem(this.storageKey);
+			const res = await fetch(`/api/channels/${this.channelId}/engagement`);
+			if (res.ok) {
+				const data = await res.json();
+				const now = Date.now();
+
+				// Load windows
+				if (data.windows) {
+					for (const [charIdStr, wins] of Object.entries(data.windows)) {
+						this.engageWindows.set(parseInt(charIdStr), wins as [number, number][]);
+					}
+				}
+
+				// Load engaged state
+				if (data.engaged) {
+					for (const [charIdStr, expiry] of Object.entries(data.engaged)) {
+						if (now < (expiry as number)) {
+							this.engaged.set(parseInt(charIdStr), expiry as number);
+						}
+					}
+				}
+				if (data.engageStartMsgId) {
+					for (const [charIdStr, msgId] of Object.entries(data.engageStartMsgId)) {
+						this.engageStartMsgId.set(parseInt(charIdStr), msgId as number);
+					}
+				}
+
+				// Migrate any leftover localStorage data
+				await this.migrateFromLocalStorage();
+				this.loaded = true;
+				this.callbacks.onEngagementChanged();
+				return;
+			}
+		} catch (err) {
+			console.warn('[Engagement] Failed to load from server, falling back to localStorage:', err);
+		}
+
+		// Fallback: load from localStorage (pre-migration)
+		this.loadFromLocalStorage();
+		this.loaded = true;
+	}
+
+	private loadFromLocalStorage() {
+		try {
+			const storageKey = `engagement-${this.channelId}`;
+			const saved = localStorage.getItem(storageKey);
 			if (saved) {
 				const parsed: PersistedState = JSON.parse(saved);
 				const now = Date.now();
@@ -78,16 +124,94 @@ export class EngagementEngine {
 		} catch {}
 	}
 
-	saveState() {
+	private async migrateFromLocalStorage() {
+		const storageKey = `engagement-${this.channelId}`;
+		const saved = localStorage.getItem(storageKey);
+		if (!saved) return;
+
 		try {
-			localStorage.setItem(this.storageKey, JSON.stringify({
-				engaged: Array.from(this.engaged.entries()),
-				cooldowns: Array.from(this.cooldowns.entries()),
-				engageStartMsgId: Array.from(this.engageStartMsgId.entries()),
-				engageWindows: Array.from(this.engageWindows.entries()),
-				lastProactive: this.lastProactiveTime
-			}));
-		} catch {}
+			const parsed: PersistedState = JSON.parse(saved);
+			const now = Date.now();
+
+			// Merge localStorage windows into server state
+			const localWindows = new Map<number, [number, number][]>(parsed.engageWindows || []);
+			const newWindows: Array<{ characterId: number; startMsgId: number; endMsgId: number }> = [];
+
+			for (const [charId, wins] of localWindows) {
+				const serverWins = this.engageWindows.get(charId) || [];
+				const serverSet = new Set(serverWins.map(([s, e]) => `${s}-${e}`));
+
+				for (const [startMsgId, endMsgId] of wins) {
+					if (!serverSet.has(`${startMsgId}-${endMsgId}`)) {
+						newWindows.push({ characterId: charId, startMsgId, endMsgId });
+						serverWins.push([startMsgId, endMsgId]);
+					}
+				}
+				if (serverWins.length > 0) {
+					this.engageWindows.set(charId, serverWins);
+				}
+			}
+
+			// Merge engaged state
+			const localEngaged = new Map<number, number>((parsed.engaged || []).filter(([_, exp]) => now < exp));
+			for (const [charId, expiry] of localEngaged) {
+				if (!this.engaged.has(charId)) {
+					this.engaged.set(charId, expiry);
+				}
+			}
+
+			const localStartMsgId = new Map<number, number>(parsed.engageStartMsgId || []);
+			for (const [charId, msgId] of localStartMsgId) {
+				if (!this.engageStartMsgId.has(charId)) {
+					this.engageStartMsgId.set(charId, msgId);
+				}
+			}
+
+			this.lastProactiveTime = Math.max(this.lastProactiveTime, parsed.lastProactive || 0);
+
+			// Push merged data to server
+			if (newWindows.length > 0 || localEngaged.size > 0) {
+				await this.pushToServer(newWindows);
+			}
+
+			// Remove localStorage entry after successful migration
+			localStorage.removeItem(storageKey);
+			console.log(`[Engagement] Migrated localStorage data for channel ${this.channelId} to server`);
+		} catch (err) {
+			console.warn('[Engagement] Migration from localStorage failed:', err);
+		}
+	}
+
+	private async pushToServer(newWindows: Array<{ characterId: number; startMsgId: number; endMsgId: number }> = []) {
+		try {
+			const engaged: Record<string, number> = {};
+			const engageStartMsgId: Record<string, number> = {};
+			for (const [charId, expiry] of this.engaged) {
+				engaged[charId] = expiry;
+			}
+			for (const [charId, msgId] of this.engageStartMsgId) {
+				engageStartMsgId[charId] = msgId;
+			}
+
+			await fetch(`/api/channels/${this.channelId}/engagement`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ newWindows, engaged, engageStartMsgId })
+			});
+		} catch (err) {
+			console.warn('[Engagement] Failed to push state to server:', err);
+		}
+	}
+
+	saveState() {
+		// Debounce server saves to avoid hammering on rapid state changes
+		if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+		this.saveDebounceTimer = setTimeout(() => {
+			this.saveDebounceTimer = null;
+			const windowsToSave = [...this.pendingWindows];
+			this.pendingWindows = [];
+			this.pushToServer(windowsToSave);
+		}, 500);
 	}
 
 	// ─── Status Helpers ───
@@ -158,6 +282,8 @@ export class EngagementEngine {
 		windows.push([startId, endId]);
 		this.engageWindows.set(charId, windows);
 		this.engageStartMsgId.delete(charId);
+		// Queue window for server save
+		this.pendingWindows.push({ characterId: charId, startMsgId: startId, endMsgId: endId });
 	}
 
 	private cleanExpired() {
@@ -488,7 +614,7 @@ export class EngagementEngine {
 		this.engageCharacter(available[Math.floor(Math.random() * available.length)].id);
 	}
 
-	debugClear() {
+	async debugClear() {
 		this.stopLoop();
 		// Extract memories for all currently engaged characters before clearing
 		for (const [charId] of this.engaged) {
@@ -497,7 +623,20 @@ export class EngagementEngine {
 		this.engaged = new Map();
 		this.cooldowns = new Map();
 		this.lastProactiveTime = 0;
-		localStorage.removeItem(this.storageKey);
+		this.engageWindows = new Map();
+		this.engageStartMsgId = new Map();
+		this.pendingWindows = [];
+
+		// Clear server state
+		try {
+			await fetch(`/api/channels/${this.channelId}/engagement`, { method: 'DELETE' });
+		} catch (err) {
+			console.warn('[Engagement] Failed to clear server state:', err);
+		}
+
+		// Also remove any leftover localStorage
+		localStorage.removeItem(`engagement-${this.channelId}`);
+
 		this.callbacks.onEngagementChanged();
 		console.log('[Engagement] All cleared (memories extracted)');
 	}
@@ -506,5 +645,14 @@ export class EngagementEngine {
 		this.stopLoop();
 		this.stopPeriodicRoll();
 		if (this.cleanupInterval) { clearInterval(this.cleanupInterval); this.cleanupInterval = null; }
+		if (this.saveDebounceTimer) {
+			clearTimeout(this.saveDebounceTimer);
+			// Flush pending saves synchronously-ish
+			const windowsToSave = [...this.pendingWindows];
+			this.pendingWindows = [];
+			if (windowsToSave.length > 0 || this.engaged.size > 0) {
+				this.pushToServer(windowsToSave);
+			}
+		}
 	}
 }
