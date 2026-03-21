@@ -385,6 +385,15 @@ export async function generateChatCompletion(
 			}
 		}
 
+		// Always show the conversation history header with channel info
+		let historyHeader = 'CONVERSATION HISTORY';
+		if (options?.channelName) {
+			historyHeader += ` (#${options.channelName})`;
+			if (options.channelDescription) {
+				historyHeader += ` — ${options.channelDescription}`;
+			}
+		}
+
 		if (conversationHistory.length > 0) {
 			const historyLines: string[] = [];
 			let lastSender = '';
@@ -416,27 +425,19 @@ export async function generateChatCompletion(
 				}
 			}
 			// Check for gap between last message and now
-			if (conversationHistory.length > 0) {
-				const lastMsg = conversationHistory[conversationHistory.length - 1];
-				const lastMsgTime = new Date(lastMsg.createdAt).getTime();
-				const nowMs = Date.now();
-				const gapMs = nowMs - lastMsgTime;
-				if (gapMs >= GAP_THRESHOLD_MS) {
-					const gapHours = Math.round(gapMs / (60 * 60 * 1000));
-					const gapMins = Math.round(gapMs / (60 * 1000));
-					const gapLabel = gapHours >= 1 ? `${gapHours} hour${gapHours !== 1 ? 's' : ''}` : `${gapMins} minutes`;
-					historyLines.push(`[TIME GAP: ${gapLabel}]`);
-				}
+			const lastMsg = conversationHistory[conversationHistory.length - 1];
+			const lastMsgTime = new Date(lastMsg.createdAt).getTime();
+			const gapMs = Date.now() - lastMsgTime;
+			if (gapMs >= 30 * 60 * 1000) {
+				const gapHours = Math.round(gapMs / (60 * 60 * 1000));
+				const gapMins = Math.round(gapMs / (60 * 1000));
+				const gapLabel = gapHours >= 1 ? `${gapHours} hour${gapHours !== 1 ? 's' : ''}` : `${gapMins} minutes`;
+				historyLines.push(`[TIME GAP: ${gapLabel}]`);
 			}
 
-			let historyHeader = 'CONVERSATION HISTORY';
-			if (options?.channelName) {
-				historyHeader += ` (#${options.channelName})`;
-				if (options.channelDescription) {
-					historyHeader += ` — ${options.channelDescription}`;
-				}
-			}
 			systemContent += `\n\n${historyHeader}:\n${historyLines.join('\n')}`;
+		} else {
+			systemContent += `\n\n${historyHeader}:\n(empty — no messages yet)`;
 		}
 		// Name primer: append to system content to guide the model
 		if (options?.useNamePrimer) {

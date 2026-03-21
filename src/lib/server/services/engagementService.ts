@@ -405,7 +405,16 @@ class EngagementService {
 				.where(eq(messages.conversationId, engine.channelId))
 				.orderBy(messages.createdAt);
 
-			const visibleMessageIds = this.getVisibleMessageIds(engine, characterId, offset, allMessages);
+			let visibleMessageIds = this.getVisibleMessageIds(engine, characterId, offset, allMessages);
+
+			// For proactive messages or fresh engagements with little context,
+			// include the last 20 messages so the character knows the room's vibe
+			if (visibleMessageIds.length < 5 && allMessages.length > 0) {
+				const recentIds = allMessages.slice(-20).map(m => m.id);
+				const merged = new Set([...visibleMessageIds, ...recentIds]);
+				visibleMessageIds = Array.from(merged);
+			}
+
 			const engagedCharacterIds = this.getActiveEngaged(engine.channelId);
 
 			// Delay before typing indicator — simulates reading the message
