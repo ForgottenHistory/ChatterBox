@@ -40,6 +40,14 @@
 	let searchInputRef = $state<HTMLInputElement | null>(null);
 	let showCreateChannel = $state(false);
 
+	// Channel edit/delete state
+	let editingChannel = $state<Conversation | null>(null);
+	let editName = $state('');
+	let editDescription = $state('');
+	let editError = $state('');
+	let editSaving = $state(false);
+	let contextMenu = $state<{ x: number; y: number; channel: Conversation } | null>(null);
+
 	let filteredCharacters = $derived(
 		searchQuery.trim()
 			? characters.filter(c =>
@@ -71,6 +79,55 @@
 
 	function handleChannelCreated(channel: Conversation) {
 		channels = [...channels, channel];
+	}
+
+	function openEditChannel(channel: Conversation) {
+		editingChannel = channel;
+		editName = channel.name || '';
+		editDescription = channel.description || '';
+		editError = '';
+		contextMenu = null;
+	}
+
+	async function saveEditChannel() {
+		if (!editingChannel || editSaving) return;
+		editSaving = true;
+		editError = '';
+		try {
+			const res = await fetch(`/api/channels/${editingChannel.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ name: editName, description: editDescription })
+			});
+			const result = await res.json();
+			if (!res.ok) { editError = result.error || 'Failed to save'; return; }
+			channels = channels.map(c => c.id === editingChannel!.id ? result.channel : c);
+			editingChannel = null;
+			window.dispatchEvent(new Event('channelUpdated'));
+		} catch { editError = 'Failed to save'; }
+		finally { editSaving = false; }
+	}
+
+	async function deleteChannel(channel: Conversation) {
+		contextMenu = null;
+		if (channel.name === 'general') return;
+		if (!confirm(`Delete #${channel.name}? All messages and memories will be lost.`)) return;
+		try {
+			const res = await fetch(`/api/channels/${channel.id}`, { method: 'DELETE' });
+			if (res.ok) {
+				channels = channels.filter(c => c.id !== channel.id);
+				// Navigate to #general if we deleted the current channel
+				if (isChannelActive(channel.id)) {
+					const general = channels.find(c => c.name === 'general');
+					if (general) window.location.href = `/channel/${general.id}`;
+				}
+			}
+		} catch (e) { console.error('Failed to delete channel:', e); }
+	}
+
+	function openContextMenu(e: MouseEvent, channel: Conversation) {
+		e.preventDefault();
+		contextMenu = { x: e.clientX, y: e.clientY, channel };
 	}
 
 	onMount(() => {
@@ -192,6 +249,7 @@
 					{#each channels as channel}
 						<a
 							href="/channel/{channel.id}"
+						oncontextmenu={(e) => openContextMenu(e, channel)}
 							class="group flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors {isChannelActive(channel.id)
 								? 'bg-[var(--sidebar-active)] text-[var(--text-primary)]'
 								: 'text-[var(--text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--text-secondary)]'}"
@@ -199,7 +257,16 @@
 							<svg class="w-4 h-4 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/>
 							</svg>
-							<span class="text-sm font-medium truncate">{channel.name}</span>
+							<span class="text-sm font-medium truncate flex-1">{channel.name}</span>
+							<button
+								onclick={(e) => { e.preventDefault(); e.stopPropagation(); openEditChannel(channel); }}
+								class="hidden group-hover:block p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded transition cursor-pointer"
+								title="Edit channel"
+							>
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+								</svg>
+							</button>
 						</a>
 					{/each}
 				</div>
@@ -373,3 +440,119 @@
 	bind:show={showCreateChannel}
 	oncreated={handleChannelCreated}
 />
+
+<!-- Channel Context Menu -->
+{#if contextMenu}
+	{@const ctx = contextMenu}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-0 z-50"
+		onclick={() => contextMenu = null}
+		oncontextmenu={(e) => { e.preventDefault(); contextMenu = null; }}
+	>
+		<div
+			class="fixed bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl py-1 min-w-[160px] z-50"
+			style="left: {ctx.x}px; top: {ctx.y}px"
+		>
+			<button
+				onclick={(e) => { e.stopPropagation(); openEditChannel(ctx.channel); }}
+				class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)] transition cursor-pointer"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+				</svg>
+				Edit Channel
+			</button>
+			{#if ctx.channel.name !== 'general'}
+				<button
+					onclick={(e) => { e.stopPropagation(); deleteChannel(ctx.channel); }}
+					class="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--error)] hover:bg-[var(--error)]/10 transition cursor-pointer"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+					</svg>
+					Delete Channel
+				</button>
+			{/if}
+		</div>
+	</div>
+{/if}
+
+<!-- Edit Channel Modal -->
+{#if editingChannel}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div
+		class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+		onkeydown={(e) => e.key === 'Escape' && (editingChannel = null)}
+		onclick={(e) => { if (e.target === e.currentTarget) editingChannel = null; }}
+	>
+		<div class="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+			<h2 class="text-lg font-bold text-[var(--text-primary)] mb-4">Edit Channel</h2>
+
+			<form onsubmit={(e) => { e.preventDefault(); saveEditChannel(); }}>
+				<div class="mb-4">
+					<label for="edit-channel-name" class="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+						Channel Name
+					</label>
+					<div class="relative">
+						<span class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">#</span>
+						<input
+							id="edit-channel-name"
+							type="text"
+							bind:value={editName}
+							class="w-full pl-7 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent"
+						/>
+					</div>
+					<p class="text-xs text-[var(--text-muted)] mt-1">Lowercase, no spaces (hyphens allowed)</p>
+				</div>
+
+				<div class="mb-5">
+					<label for="edit-channel-desc" class="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
+						Description <span class="text-[var(--text-muted)]">(optional)</span>
+					</label>
+					<input
+						id="edit-channel-desc"
+						type="text"
+						bind:value={editDescription}
+						placeholder="What's this channel about?"
+						class="w-full px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)] focus:border-transparent"
+					/>
+				</div>
+
+				{#if editError}
+					<p class="text-sm text-[var(--error)] mb-4">{editError}</p>
+				{/if}
+
+				<div class="flex justify-between">
+					{#if editingChannel.name !== 'general'}
+						<button
+							type="button"
+							onclick={() => { if (editingChannel) deleteChannel(editingChannel); editingChannel = null; }}
+							class="px-4 py-2 text-sm font-medium text-[var(--error)] hover:bg-[var(--error)]/10 rounded-lg transition cursor-pointer"
+						>
+							Delete Channel
+						</button>
+					{:else}
+						<div></div>
+					{/if}
+					<div class="flex gap-3">
+						<button
+							type="button"
+							onclick={() => editingChannel = null}
+							class="px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-lg transition cursor-pointer"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={!editName.trim() || editSaving}
+							class="px-4 py-2 text-sm font-medium text-white bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] rounded-lg transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						>
+							{editSaving ? 'Saving...' : 'Save'}
+						</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}

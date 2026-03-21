@@ -5,8 +5,8 @@ import { lorebookService } from './services/lorebookService';
 import { getFormattedMemories } from './services/memoryService';
 import { logger } from './utils/logger';
 import { db } from './db';
-import { characters as charactersTable } from './db/schema';
-import { inArray } from 'drizzle-orm';
+import { characters as charactersTable, engagementWindows, conversations, messages as messagesTable } from './db/schema';
+import { inArray, eq, and, ne, asc } from 'drizzle-orm';
 import type { Message, Character, LlmSettings } from './db/schema';
 import fs from 'fs/promises';
 import path from 'path';
@@ -167,7 +167,7 @@ export async function generateChatCompletion(
 	character: Character,
 	settings: LlmSettings,
 	messageType: string = 'chat',
-	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean; engagedCharacterIds?: number[] }
+	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean; engagedCharacterIds?: number[]; channelId?: number; channelName?: string; channelDescription?: string }
 ): Promise<ChatCompletionResult> {
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
@@ -316,6 +316,75 @@ export async function generateChatCompletion(
 			systemContent += `\n\n${getProactivePrompt()}`;
 		}
 
+		// Inject recent conversations from OTHER channels this character participated in
+		if (options?.channelId) {
+			try {
+				const otherWindows = await db.select({
+					channelId: engagementWindows.channelId,
+					startMsgId: engagementWindows.startMsgId,
+					endMsgId: engagementWindows.endMsgId
+				}).from(engagementWindows).where(
+					and(
+						eq(engagementWindows.characterId, character.id),
+						ne(engagementWindows.channelId, options.channelId)
+					)
+				).orderBy(asc(engagementWindows.createdAt));
+
+				if (otherWindows.length > 0) {
+					// Group windows by channel
+					const windowsByChannel = new Map<number, { startMsgId: number; endMsgId: number }[]>();
+					for (const w of otherWindows) {
+						const list = windowsByChannel.get(w.channelId) || [];
+						list.push({ startMsgId: w.startMsgId, endMsgId: w.endMsgId });
+						windowsByChannel.set(w.channelId, list);
+					}
+
+					// Get channel names
+					const channelIds = Array.from(windowsByChannel.keys());
+					const channelInfos = await db.select({ id: conversations.id, name: conversations.name, description: conversations.description })
+						.from(conversations)
+						.where(inArray(conversations.id, channelIds));
+					const channelNameMap = new Map(channelInfos.map(c => [c.id, { name: c.name, description: c.description }]));
+
+					// Build recent conversation blocks — only use the most recent window per channel
+					for (const [chanId, wins] of windowsByChannel) {
+						const info = channelNameMap.get(chanId);
+						const chanLabel = info?.name ? `#${info.name}` : `channel ${chanId}`;
+
+						// Take the last (most recent) window only
+						const lastWin = wins[wins.length - 1];
+
+						// Fetch messages in that window
+						const windowMsgs = await db.select().from(messagesTable)
+							.where(eq(messagesTable.conversationId, chanId))
+							.orderBy(asc(messagesTable.createdAt));
+
+						const filtered = windowMsgs.filter(m => m.id >= lastWin.startMsgId && m.id <= lastWin.endMsgId);
+						if (filtered.length === 0) continue;
+
+						// Format compactly
+						const lines: string[] = [];
+						let prevSender = '';
+						for (const msg of filtered) {
+							const name = msg.senderName || (msg.role === 'user' ? userName : '???');
+							if (options?.compactHistory !== false && name === prevSender) {
+								lines.push(msg.content);
+							} else {
+								lines.push(`${name}: ${msg.content}`);
+								prevSender = name;
+							}
+						}
+
+						let header = `RECENT CONVERSATION (${chanLabel})`;
+						if (info?.description) header += ` — ${info.description}`;
+						systemContent += `\n\n${header}:\n${lines.join('\n')}`;
+					}
+				}
+			} catch (err) {
+				logger.warn('Failed to load cross-channel conversations:', err);
+			}
+		}
+
 		if (conversationHistory.length > 0) {
 			const historyLines: string[] = [];
 			let lastSender = '';
@@ -360,7 +429,14 @@ export async function generateChatCompletion(
 				}
 			}
 
-			systemContent += `\n\nCONVERSATION HISTORY:\n${historyLines.join('\n')}`;
+			let historyHeader = 'CONVERSATION HISTORY';
+			if (options?.channelName) {
+				historyHeader += ` (#${options.channelName})`;
+				if (options.channelDescription) {
+					historyHeader += ` — ${options.channelDescription}`;
+				}
+			}
+			systemContent += `\n\n${historyHeader}:\n${historyLines.join('\n')}`;
 		}
 		// Name primer: append to system content to guide the model
 		if (options?.useNamePrimer) {

@@ -7,7 +7,7 @@
 	import ChannelMembersSidebar from '$lib/components/channel/ChannelMembersSidebar.svelte';
 	import ReasoningModal from '$lib/components/channel/ReasoningModal.svelte';
 	import MemoriesModal from '$lib/components/channel/MemoriesModal.svelte';
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { getCharactersCache, isCharactersCacheLoaded } from '$lib/stores/characters';
 	import {
 		initSocket, joinChannel, leaveChannel, emitUserMessage,
@@ -54,10 +54,43 @@
 	let allEngaged = $derived(characters.every(c => engagedIds.has(c.id)));
 
 	// ─── Socket.IO Setup ───
+	let currentChannelId = $state(data.channelId);
+
 	onMount(() => {
-		const socket = initSocket();
-		if (socket) {
-			joinChannel(data.channelId);
+		initSocket();
+		loadSettings();
+		if (!isCharactersCacheLoaded()) loadCharacters();
+
+		const saved = localStorage.getItem('channelMembersSidebar');
+		if (saved !== null) membersSidebarCollapsed = saved === 'collapsed';
+
+		return () => {
+			leaveChannel(currentChannelId);
+			removeChannelListeners();
+		};
+	});
+
+	// React to channel changes (including initial load)
+	$effect(() => {
+		const channelId = data.channelId;
+
+		untrack(() => {
+			// Leave previous channel if switching
+			if (currentChannelId !== channelId) {
+				leaveChannel(currentChannelId);
+				removeChannelListeners();
+			}
+			currentChannelId = channelId;
+
+			// Reset state for new channel
+			messages = [];
+			loading = true;
+			engagedMap = {};
+			engagementVersion++;
+			typingCharacter = null;
+
+			// Join new channel and set up listeners
+			joinChannel(channelId);
 
 			onChannelNewMessage((message: Message) => {
 				messages = [...messages, message];
@@ -75,19 +108,9 @@
 				engagedMap = engaged;
 				engagementVersion++;
 			});
-		}
 
-		loadMessages();
-		loadSettings();
-		if (!isCharactersCacheLoaded()) loadCharacters();
-
-		const saved = localStorage.getItem('channelMembersSidebar');
-		if (saved !== null) membersSidebarCollapsed = saved === 'collapsed';
-
-		return () => {
-			leaveChannel(data.channelId);
-			removeChannelListeners();
-		};
+			loadMessages();
+		});
 	});
 
 	$effect(() => {

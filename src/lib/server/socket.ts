@@ -81,6 +81,7 @@ export function initSocketServer(httpServer: Server) {
 			if (!userId) { logger.warn('[Socket] join-channel: no userId'); return; }
 			const svc = getEngagementService();
 			if (!svc) { logger.warn('[Socket] join-channel: engagement service not available'); return; }
+			svc.setFocus(channelId);
 			await svc.activateChannel(channelId, userId);
 			const state = svc.getState(channelId);
 			socket.emit('channel-engagement-changed', state);
@@ -90,6 +91,8 @@ export function initSocketServer(httpServer: Server) {
 			const { channelId } = data;
 			socket.leave(`conversation-${channelId}`);
 			logger.info(`Socket ${socket.id} left channel ${channelId}`);
+			const svc = getEngagementService();
+			if (svc) svc.clearFocus(channelId);
 		});
 
 		socket.on('channel-user-message', async (data: { channelId: number; text: string }) => {

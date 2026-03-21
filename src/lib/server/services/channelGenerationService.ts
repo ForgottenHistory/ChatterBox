@@ -26,6 +26,13 @@ export async function generateChannelMessage(
 ): Promise<ChannelGenerationResult> {
 	const { proactive = false, visibleMessageIds, engagedCharacterIds } = options;
 
+	// Get channel info
+	const [channel] = await db
+		.select({ name: conversations.name, description: conversations.description })
+		.from(conversations)
+		.where(eq(conversations.id, channelId))
+		.limit(1);
+
 	// Get the character
 	const [character] = await db
 		.select()
@@ -138,7 +145,7 @@ export async function generateChannelMessage(
 		character,
 		settings,
 		proactive ? 'channel-proactive' : 'channel',
-		{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive, engagedCharacterIds }
+		{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive, engagedCharacterIds, channelId, channelName: channel?.name || undefined, channelDescription: channel?.description || undefined }
 	);
 
 	// Check for *ignore*

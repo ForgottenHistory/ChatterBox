@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { characters, users, messages, engagementWindows, engagementState, conversations } from '$lib/server/db/schema';
+import { characters, users, messages, engagementWindows, engagementState } from '$lib/server/db/schema';
 import type { Character, Message } from '$lib/server/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { generateChannelMessage } from './channelGenerationService';
@@ -41,8 +41,6 @@ function getCharacterStatus(character: Character): CharacterStatus {
 class ChannelEngine {
 	channelId: number;
 	userId: number;
-	engaged = new Map<number, number>();
-	cooldowns = new Map<number, number>();
 	engageStartMsgId = new Map<number, number>();
 	engageWindows = new Map<number, [number, number][]>();
 	lastProactiveTime = 0;
@@ -83,12 +81,89 @@ class ChannelEngine {
 class EngagementService {
 	private engines = new Map<number, ChannelEngine>();
 
+	// Global engagement state — a character can only be in one channel at a time
+	// characterId → { channelId, expiry }
+	private engaged = new Map<number, { channelId: number; expiry: number }>();
+	// characterId → cooldown expiry (shared across all channels)
+	private cooldowns = new Map<number, number>();
+
+	// The channel the user is currently viewing — only this channel can start new engagements
+	private focusedChannelId: number | null = null;
+
+	// ─── Global State Helpers ───
+
+	/** Check if a character is engaged anywhere */
+	private isEngaged(charId: number): boolean {
+		const entry = this.engaged.get(charId);
+		return !!entry && Date.now() < entry.expiry;
+	}
+
+	/** Check if a character is engaged in a specific channel */
+	private isEngagedIn(charId: number, channelId: number): boolean {
+		const entry = this.engaged.get(charId);
+		return !!entry && entry.channelId === channelId && Date.now() < entry.expiry;
+	}
+
+	/** Check if a character is on cooldown */
+	private isOnCooldown(charId: number): boolean {
+		const expiry = this.cooldowns.get(charId);
+		return !!expiry && Date.now() < expiry;
+	}
+
+	/** Check if a character is available (not engaged anywhere, not on cooldown, not offline) */
+	private isAvailable(character: Character): boolean {
+		return !this.isEngaged(character.id) && !this.isOnCooldown(character.id) && getCharacterStatus(character) !== 'offline';
+	}
+
+	/** Engage a character in a specific channel */
+	private setEngaged(charId: number, channelId: number, expiry: number): void {
+		this.engaged.set(charId, { channelId, expiry });
+	}
+
+	/** Disengage a character (from whatever channel they're in) */
+	private removeEngaged(charId: number): void {
+		this.engaged.delete(charId);
+	}
+
+	/** Set cooldown for a character */
+	private setCooldown(charId: number, expiry: number): void {
+		this.cooldowns.set(charId, expiry);
+	}
+
+	/** Check if a channel is the user's focused channel (can start new engagements) */
+	private isFocused(channelId: number): boolean {
+		return this.focusedChannelId === channelId;
+	}
+
+	/** Set which channel the user is focused on */
+	setFocus(channelId: number): void {
+		this.focusedChannelId = channelId;
+		logger.info(`[Engagement] User focus set to channel ${channelId}`);
+	}
+
+	/** Clear focus (user left all channels) */
+	clearFocus(channelId: number): void {
+		if (this.focusedChannelId === channelId) {
+			this.focusedChannelId = null;
+			logger.info(`[Engagement] User focus cleared`);
+		}
+	}
+
+	/** Get all character IDs actively engaged in a specific channel */
+	private getActiveEngaged(channelId: number): number[] {
+		const now = Date.now();
+		const active: number[] = [];
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId === channelId && now < entry.expiry) active.push(charId);
+		}
+		return active;
+	}
+
 	// ─── Engine Lifecycle ───
 
 	async activateChannel(channelId: number, userId: number): Promise<ChannelEngine> {
 		let engine = this.engines.get(channelId);
 		if (engine) {
-			// Already active, just ensure timers are running
 			await engine.ensureCache();
 			if (!engine.engageRollTimer) this.scheduleNextRoll(engine);
 			if (!engine.cleanupInterval) this.startCleanup(engine);
@@ -98,16 +173,13 @@ class EngagementService {
 		engine = new ChannelEngine(channelId, userId);
 		this.engines.set(channelId, engine);
 
-		// Load state from DB
 		await this.loadStateFromDB(engine);
 		await engine.ensureCache();
 
-		// Start timers
 		this.startCleanup(engine);
 		this.scheduleNextRoll(engine);
 
-		// If 2+ engaged, start the loop
-		if (this.getActiveEngaged(engine).length >= 2) {
+		if (this.getActiveEngaged(channelId).length >= 2) {
 			this.startLoop(engine);
 		}
 
@@ -129,30 +201,32 @@ class EngagementService {
 			engine.engageWindows.set(w.characterId, existing);
 		}
 
-		// Load active engagements
+		// Load active engagements into global state
 		const states = await db.select().from(engagementState)
 			.where(eq(engagementState.channelId, engine.channelId));
 		const now = Date.now();
 		for (const s of states) {
 			if (now < s.engagedUntil) {
-				engine.engaged.set(s.characterId, s.engagedUntil);
-				engine.engageStartMsgId.set(s.characterId, s.startMsgId);
+				// Only load if character isn't already engaged in another channel
+				if (!this.isEngaged(s.characterId)) {
+					this.setEngaged(s.characterId, engine.channelId, s.engagedUntil);
+					engine.engageStartMsgId.set(s.characterId, s.startMsgId);
+				}
 			} else {
-				// Clean up expired
 				await db.delete(engagementState).where(eq(engagementState.id, s.id));
 			}
 		}
 	}
 
 	private async saveEngagementToDB(engine: ChannelEngine): Promise<void> {
-		// Replace all engagement state for this channel
 		await db.delete(engagementState).where(eq(engagementState.channelId, engine.channelId));
-		for (const [charId, expiry] of engine.engaged) {
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId !== engine.channelId) continue;
 			const startMsgId = engine.engageStartMsgId.get(charId) ?? 0;
 			await db.insert(engagementState).values({
 				channelId: engine.channelId,
 				characterId: charId,
-				engagedUntil: expiry,
+				engagedUntil: entry.expiry,
 				startMsgId
 			});
 		}
@@ -178,21 +252,14 @@ class EngagementService {
 	private emitEngagementChanged(engine: ChannelEngine): void {
 		const engaged: Record<number, number> = {};
 		const cooldowns: Record<number, number> = {};
-		for (const [charId, expiry] of engine.engaged) engaged[charId] = expiry;
-		for (const [charId, expiry] of engine.cooldowns) cooldowns[charId] = expiry;
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId === engine.channelId) engaged[charId] = entry.expiry;
+		}
+		for (const [charId, expiry] of this.cooldowns) cooldowns[charId] = expiry;
 		this.emitToChannel(engine.channelId, 'channel-engagement-changed', { engaged, cooldowns });
 	}
 
 	// ─── Status Helpers ───
-
-	private getActiveEngaged(engine: ChannelEngine): number[] {
-		const now = Date.now();
-		const active: number[] = [];
-		for (const [charId, expiry] of engine.engaged) {
-			if (now < expiry) active.push(charId);
-		}
-		return active;
-	}
 
 	private getLastSpeakerId(engine: ChannelEngine, recentMessages: Message[]): number | null {
 		for (let i = recentMessages.length - 1; i >= 0; i--) {
@@ -227,7 +294,6 @@ class EngagementService {
 		const startId = engine.engageStartMsgId.get(charId);
 		if (startId === undefined) return;
 
-		// Get the last message ID in channel
 		const [lastMsg] = await db.select({ id: messages.id }).from(messages)
 			.where(eq(messages.conversationId, engine.channelId))
 			.orderBy(desc(messages.createdAt))
@@ -248,14 +314,12 @@ class EngagementService {
 		const currentStartMsgId = engine.engageStartMsgId.get(characterId);
 		const historicalWindows = engine.engageWindows.get(characterId) || [];
 
-		// No tracking data — show all
 		if (currentStartMsgId === undefined && historicalWindows.length === 0) {
 			return allMessages.map(m => m.id);
 		}
 
 		const visible = new Set<number>();
 
-		// Historical windows (with offset on both sides)
 		for (const [startId, endId] of historicalWindows) {
 			let startIdx = allMessages.findIndex(m => m.id >= startId);
 			let endIdx = allMessages.findIndex(m => m.id > endId);
@@ -269,7 +333,6 @@ class EngagementService {
 			}
 		}
 
-		// Current engagement (start - offset to end)
 		if (currentStartMsgId !== undefined) {
 			let startIdx = allMessages.findIndex(m => m.id >= currentStartMsgId);
 			if (startIdx === -1) startIdx = allMessages.length;
@@ -287,10 +350,10 @@ class EngagementService {
 	private startCleanup(engine: ChannelEngine): void {
 		if (engine.cleanupInterval) return;
 		engine.cleanupInterval = setInterval(() => {
-			const sizeBefore = engine.engaged.size;
-			if (sizeBefore === 0) return;
+			const activeBefore = this.getActiveEngaged(engine.channelId).length;
+			if (activeBefore === 0) return;
 			this.cleanExpired(engine);
-			if (engine.engaged.size < sizeBefore) {
+			if (this.getActiveEngaged(engine.channelId).length < activeBefore) {
 				this.emitEngagementChanged(engine);
 				this.saveEngagementToDB(engine);
 			}
@@ -303,22 +366,23 @@ class EngagementService {
 		const cooldownMs = (s?.engageCooldown ?? 5) * 60 * 1000;
 		const chars = engine.getCharacters();
 
-		for (const [charId, expiry] of engine.engaged) {
-			if (now >= expiry) {
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId !== engine.channelId) continue;
+			if (now >= entry.expiry) {
 				const name = chars.find(c => c.id === charId)?.name || charId;
 				logger.info(`[Engagement] ${name} expired in channel ${engine.channelId}`);
-				engine.engaged.delete(charId);
+				this.removeEngaged(charId);
 				await this.closeEngageWindow(engine, charId);
-				if (cooldownMs > 0) engine.cooldowns.set(charId, now + cooldownMs);
+				if (cooldownMs > 0) this.setCooldown(charId, now + cooldownMs);
 
-				// Trigger memory extraction
 				extractMemories(charId, engine.userId, engine.channelId).catch(err =>
 					logger.warn(`[Engagement] Memory extraction failed for ${name}:`, err)
 				);
 			}
 		}
-		for (const [charId, expiry] of engine.cooldowns) {
-			if (now >= expiry) engine.cooldowns.delete(charId);
+		// Clean expired cooldowns globally
+		for (const [charId, expiry] of this.cooldowns) {
+			if (now >= expiry) this.cooldowns.delete(charId);
 		}
 	}
 
@@ -337,19 +401,16 @@ class EngagementService {
 			const s = engine.getBehaviourSettings();
 			const offset = s?.engageContextOffset ?? 10;
 
-			// Get all messages for windowing
 			const allMessages = await db.select().from(messages)
 				.where(eq(messages.conversationId, engine.channelId))
 				.orderBy(messages.createdAt);
 
 			const visibleMessageIds = this.getVisibleMessageIds(engine, characterId, offset, allMessages);
-			const engagedCharacterIds = this.getActiveEngaged(engine);
+			const engagedCharacterIds = this.getActiveEngaged(engine.channelId);
 
-			// Emit typing
-			this.emitToChannel(engine.channelId, 'channel-typing', { characterName: character.name, isTyping: true });
-
-			// Artificial typing delay
+			// Delay before typing indicator — simulates reading the message
 			await sleep(800 + Math.random() * 1200);
+			this.emitToChannel(engine.channelId, 'channel-typing', { characterName: character.name, isTyping: true });
 
 			const result = await generateChannelMessage(engine.channelId, engine.userId, characterId, {
 				proactive,
@@ -357,7 +418,6 @@ class EngagementService {
 				engagedCharacterIds
 			});
 
-			// Stop typing
 			this.emitToChannel(engine.channelId, 'channel-typing', { characterName: character.name, isTyping: false });
 
 			if (result.ignored) {
@@ -365,7 +425,6 @@ class EngagementService {
 				return false;
 			}
 
-			// Emit messages with delays between multi-line
 			for (let i = 0; i < result.messages.length; i++) {
 				if (i > 0) {
 					this.emitToChannel(engine.channelId, 'channel-typing', { characterName: character.name, isTyping: true });
@@ -387,6 +446,8 @@ class EngagementService {
 	// ─── Engagement Rolls ───
 
 	async rollEngagement(engine: ChannelEngine): Promise<void> {
+		// Only start new engagements in the focused channel
+		if (!this.isFocused(engine.channelId)) return;
 		const s = engine.getBehaviourSettings();
 		const chars = engine.getCharacters();
 		if (!s || chars.length === 0) return;
@@ -401,14 +462,11 @@ class EngagementService {
 			const newlyEngaged: number[] = [];
 
 			for (const character of chars) {
-				if (engine.engaged.has(character.id)) continue;
-				if (engine.cooldowns.has(character.id)) continue;
-				const status = getCharacterStatus(character);
-				if (status === 'offline') continue;
+				if (!this.isAvailable(character)) continue;
 
-				const { chance: baseChance, duration } = this.getChanceDuration(engine, status);
+				const { chance: baseChance, duration } = this.getChanceDuration(engine, getCharacterStatus(character));
 				if (Math.random() * 100 < baseChance) {
-					engine.engaged.set(character.id, now + duration);
+					this.setEngaged(character.id, engine.channelId, now + duration);
 					const [lastMsg] = await db.select({ id: messages.id }).from(messages)
 						.where(eq(messages.conversationId, engine.channelId))
 						.orderBy(desc(messages.createdAt))
@@ -425,7 +483,7 @@ class EngagementService {
 				for (const charId of newlyEngaged) {
 					await this.generateMessage(engine, charId);
 				}
-				if (this.getActiveEngaged(engine).length >= 2 && !engine.engagementLoopRunning) {
+				if (this.getActiveEngaged(engine.channelId).length >= 2 && !engine.engagementLoopRunning) {
 					this.startLoop(engine);
 				}
 			}
@@ -435,6 +493,7 @@ class EngagementService {
 	}
 
 	private async rollEngagementOnce(engine: ChannelEngine, excludeId: number): Promise<void> {
+		if (!this.isFocused(engine.channelId)) return;
 		const s = engine.getBehaviourSettings();
 		const chars = engine.getCharacters();
 		if (!s || chars.length === 0) return;
@@ -445,15 +504,12 @@ class EngagementService {
 			const now = Date.now();
 			for (const character of chars) {
 				if (character.id === excludeId) continue;
-				if (engine.engaged.has(character.id)) continue;
-				if (engine.cooldowns.has(character.id) && now < (engine.cooldowns.get(character.id) ?? 0)) continue;
-				const status = getCharacterStatus(character);
-				if (status === 'offline') continue;
+				if (!this.isAvailable(character)) continue;
 
-				const { chance: baseChance, duration } = this.getChanceDuration(engine, status);
+				const { chance: baseChance, duration } = this.getChanceDuration(engine, getCharacterStatus(character));
 				const boosted = Math.min(100, baseChance * PROACTIVE_ENGAGE_BOOST);
 				if (Math.random() * 100 < boosted) {
-					engine.engaged.set(character.id, now + duration);
+					this.setEngaged(character.id, engine.channelId, now + duration);
 					const [lastMsg] = await db.select({ id: messages.id }).from(messages)
 						.where(eq(messages.conversationId, engine.channelId))
 						.orderBy(desc(messages.createdAt))
@@ -479,7 +535,7 @@ class EngagementService {
 		const { duration } = this.getChanceDuration(engine, status);
 		const expiry = Date.now() + duration;
 		logger.info(`[Engagement] ${char.name} engaged for ${Math.round(duration / 1000 / 60)}min in channel ${engine.channelId}`);
-		engine.engaged.set(charId, expiry);
+		this.setEngaged(charId, engine.channelId, expiry);
 
 		const [lastMsg] = await db.select({ id: messages.id }).from(messages)
 			.where(eq(messages.conversationId, engine.channelId))
@@ -490,7 +546,6 @@ class EngagementService {
 		await this.saveEngagementToDB(engine);
 		this.emitEngagementChanged(engine);
 
-		// Get recent messages for proactive check
 		const recentMessages = await db.select().from(messages)
 			.where(eq(messages.conversationId, engine.channelId))
 			.orderBy(desc(messages.createdAt))
@@ -505,7 +560,7 @@ class EngagementService {
 			await this.rollEngagementOnce(engine, charId);
 		}
 
-		if (this.getActiveEngaged(engine).length >= 2 && !engine.engagementLoopRunning) {
+		if (this.getActiveEngaged(engine.channelId).length >= 2 && !engine.engagementLoopRunning) {
 			this.startLoop(engine);
 		}
 	}
@@ -527,7 +582,7 @@ class EngagementService {
 		if (!engine.engagementLoopRunning) return;
 		const s = engine.getBehaviourSettings();
 		if (!s) return;
-		const active = this.getActiveEngaged(engine);
+		const active = this.getActiveEngaged(engine.channelId);
 		if (active.length < 2) { this.stopLoop(engine); return; }
 
 		const minDelay = (s.channelFrequencyMin ?? 5) * 1000;
@@ -536,12 +591,11 @@ class EngagementService {
 
 		engine.engagementTimer = setTimeout(async () => {
 			engine.engagementTimer = null;
-			const currentActive = this.getActiveEngaged(engine);
+			const currentActive = this.getActiveEngaged(engine.channelId);
 			if (currentActive.length < 2) { this.stopLoop(engine); return; }
 
 			await engine.ensureCache();
 
-			// Pick speaker with double-text logic
 			const dtMin = s.doubleTextChanceMin ?? 10;
 			const dtMax = s.doubleTextChanceMax ?? 30;
 			const dtChance = dtMin + Math.random() * (dtMax - dtMin);
@@ -567,7 +621,7 @@ class EngagementService {
 			await this.cleanExpired(engine);
 			this.emitEngagementChanged(engine);
 
-			if (engine.engagementLoopRunning && this.getActiveEngaged(engine).length >= 2) {
+			if (engine.engagementLoopRunning && this.getActiveEngaged(engine.channelId).length >= 2) {
 				this.scheduleNextMessage(engine);
 			} else {
 				this.stopLoop(engine);
@@ -584,15 +638,13 @@ class EngagementService {
 		}
 		await engine.ensureCache();
 
-		const active = this.getActiveEngaged(engine);
+		const active = this.getActiveEngaged(channelId);
 		if (active.length > 0) {
-			// Cancel pending loop message — user took priority
 			if (engine.engagementTimer) { clearTimeout(engine.engagementTimer); engine.engagementTimer = null; }
 
 			const chars = engine.getCharacters();
 			let charId: number | undefined;
 
-			// Name mention matching
 			const msgLower = messageText.toLowerCase();
 			for (const id of active) {
 				const char = chars.find(c => c.id === id);
@@ -611,25 +663,21 @@ class EngagementService {
 
 			await this.generateMessage(engine, charId);
 
-			// Chance to pull in another character
 			const s = engine.getBehaviourSettings();
 			const joinChance = (s?.joinChancePerMessage ?? 1) / 100;
 			if (joinChance > 0 && Math.random() < joinChance) {
-				const available = chars.filter(c =>
-					!engine!.engaged.has(c.id) && !engine!.cooldowns.has(c.id) && getCharacterStatus(c) !== 'offline'
-				);
+				const available = chars.filter(c => this.isAvailable(c));
 				if (available.length > 0) {
 					const char = available[Math.floor(Math.random() * available.length)];
 					await this.engageCharacter(engine, char.id, false);
 				}
 			}
 
-			if (this.getActiveEngaged(engine).length >= 2) {
+			if (this.getActiveEngaged(channelId).length >= 2) {
 				if (!engine.engagementLoopRunning) this.startLoop(engine);
 				else this.scheduleNextMessage(engine);
 			}
 		} else {
-			// No one engaged — roll for engagement
 			await this.rollEngagement(engine);
 		}
 	}
@@ -639,7 +687,6 @@ class EngagementService {
 	private scheduleNextRoll(engine: ChannelEngine): void {
 		const s = engine.getBehaviourSettings();
 		if (!s) {
-			// Settings not loaded yet, retry in 5s
 			engine.engageRollTimer = setTimeout(() => {
 				engine.engageRollTimer = null;
 				this.scheduleNextRoll(engine);
@@ -652,15 +699,16 @@ class EngagementService {
 
 		engine.engageRollTimer = setTimeout(async () => {
 			engine.engageRollTimer = null;
-			await engine.ensureCache();
-			const chars = engine.getCharacters();
-			const available = chars.filter(c =>
-				!engine.engaged.has(c.id) && !engine.cooldowns.has(c.id) && getCharacterStatus(c) !== 'offline'
-			);
-			if (available.length > 0) {
-				const char = available[Math.floor(Math.random() * available.length)];
-				logger.info(`[Engagement Roll] Periodic — trying ${char.name} in channel ${engine.channelId}`);
-				await this.engageCharacter(engine, char.id);
+			// Only roll new engagements in the focused channel
+			if (this.isFocused(engine.channelId)) {
+				await engine.ensureCache();
+				const chars = engine.getCharacters();
+				const available = chars.filter(c => this.isAvailable(c));
+				if (available.length > 0) {
+					const char = available[Math.floor(Math.random() * available.length)];
+					logger.info(`[Engagement Roll] Periodic — trying ${char.name} in channel ${engine.channelId}`);
+					await this.engageCharacter(engine, char.id);
+				}
 			}
 			this.scheduleNextRoll(engine);
 		}, delay);
@@ -672,11 +720,11 @@ class EngagementService {
 		const engine = this.engines.get(channelId);
 		if (!engine) return;
 
-		engine.engaged.delete(characterId);
+		this.removeEngaged(characterId);
 		await this.closeEngageWindow(engine, characterId);
 		const s = engine.getBehaviourSettings();
 		const cooldownMs = (s?.engageCooldown ?? 5) * 60 * 1000;
-		if (cooldownMs > 0) engine.cooldowns.set(characterId, Date.now() + cooldownMs);
+		if (cooldownMs > 0) this.setCooldown(characterId, Date.now() + cooldownMs);
 
 		extractMemories(characterId, engine.userId, engine.channelId).catch(err =>
 			logger.warn('[Engagement] Memory extraction failed on ignore:', err)
@@ -685,7 +733,7 @@ class EngagementService {
 		await this.saveEngagementToDB(engine);
 		this.emitEngagementChanged(engine);
 
-		if (this.getActiveEngaged(engine).length < 2) {
+		if (this.getActiveEngaged(channelId).length < 2) {
 			this.stopLoop(engine);
 		}
 	}
@@ -699,8 +747,8 @@ class EngagementService {
 		const chars = engine.getCharacters();
 		if (chars.length === 0) { logger.warn(`[Engagement] debugEngageRandom: no characters`); return; }
 		if (!engine.getBehaviourSettings()) { logger.warn(`[Engagement] debugEngageRandom: no behaviour settings`); return; }
-		const available = chars.filter(c => !engine.engaged.has(c.id) && getCharacterStatus(c) !== 'offline');
-		if (available.length === 0) { logger.warn(`[Engagement] debugEngageRandom: no available characters`); return; }
+		const available = chars.filter(c => this.isAvailable(c));
+		if (available.length === 0) { logger.warn(`[Engagement] debugEngageRandom: no available characters (all engaged or on cooldown)`); return; }
 		const char = available[Math.floor(Math.random() * available.length)];
 		logger.info(`[Engagement] debugEngageRandom: engaging ${char.name} in channel ${channelId}`);
 		await this.engageCharacter(engine, char.id);
@@ -712,13 +760,14 @@ class EngagementService {
 
 		this.stopLoop(engine);
 
-		// Extract memories for all engaged
-		for (const [charId] of engine.engaged) {
-			extractMemories(charId, engine.userId, engine.channelId).catch(() => {});
+		// Extract memories and remove engaged characters for this channel
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId === channelId) {
+				extractMemories(charId, engine.userId, engine.channelId).catch(() => {});
+				this.removeEngaged(charId);
+			}
 		}
 
-		engine.engaged = new Map();
-		engine.cooldowns = new Map();
 		engine.lastProactiveTime = 0;
 		engine.engageWindows = new Map();
 		engine.engageStartMsgId = new Map();
@@ -733,13 +782,12 @@ class EngagementService {
 	// ─── Get Current State (for client on join) ───
 
 	getState(channelId: number): { engaged: Record<number, number>; cooldowns: Record<number, number> } {
-		const engine = this.engines.get(channelId);
 		const engaged: Record<number, number> = {};
 		const cooldowns: Record<number, number> = {};
-		if (engine) {
-			for (const [charId, expiry] of engine.engaged) engaged[charId] = expiry;
-			for (const [charId, expiry] of engine.cooldowns) cooldowns[charId] = expiry;
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId === channelId) engaged[charId] = entry.expiry;
 		}
+		for (const [charId, expiry] of this.cooldowns) cooldowns[charId] = expiry;
 		return { engaged, cooldowns };
 	}
 
@@ -762,10 +810,24 @@ class EngagementService {
 }
 
 // ─── Singleton with hot reload persistence ───
+// We always create a fresh instance (so code changes apply on hot reload)
+// but transfer the state from the previous instance if it exists.
 
 declare global {
 	var __engagementService: EngagementService | undefined;
 }
 
-export const engagementService = global.__engagementService || new EngagementService();
+const previousInstance = global.__engagementService;
+export const engagementService = new EngagementService();
+
+// Transfer state from previous instance on hot reload
+if (previousInstance) {
+	(engagementService as any).engaged = (previousInstance as any).engaged;
+	(engagementService as any).cooldowns = (previousInstance as any).cooldowns;
+	(engagementService as any).engines = (previousInstance as any).engines;
+	(engagementService as any).focusedChannelId = (previousInstance as any).focusedChannelId;
+	// Stop old timers — the new instance will restart them when channels are activated
+	previousInstance.destroyAll();
+}
+
 global.__engagementService = engagementService;
