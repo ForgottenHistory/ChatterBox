@@ -36,7 +36,8 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		engageChanceBusy: user.engageChanceBusy,
 		engageDurationOnline: user.engageDurationOnline,
 		engageDurationAway: user.engageDurationAway,
-		engageDurationBusy: user.engageDurationBusy
+		engageDurationBusy: user.engageDurationBusy,
+		proactiveCooldown: user.proactiveCooldown
 	});
 };
 
@@ -97,6 +98,11 @@ export const PUT: RequestHandler = async ({ cookies, request }) => {
 	// Engagement cooldown
 	if (typeof body.engageCooldown === 'number') {
 		updateData.engageCooldown = Math.max(0, Math.round(body.engageCooldown));
+	}
+
+	// Proactive cooldown
+	if (typeof body.proactiveCooldown === 'number') {
+		updateData.proactiveCooldown = Math.max(1, Math.round(body.proactiveCooldown));
 	}
 
 	// Engagement chances (0-100)

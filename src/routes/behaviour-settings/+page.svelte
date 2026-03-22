@@ -27,6 +27,7 @@
 	let memoryDecayPoints = $state(2);
 	let engageContextOffset = $state(10);
 	let engageCooldown = $state(5);
+	let proactiveCooldown = $state(30);
 	let engageDurationOnline = $state(5);
 	let engageDurationAway = $state(2);
 	let engageDurationBusy = $state(1);
@@ -50,6 +51,7 @@
 				memoryDecayPoints = d.memoryDecayPoints ?? 2;
 				engageContextOffset = d.engageContextOffset ?? 10;
 				engageCooldown = d.engageCooldown ?? 5;
+				proactiveCooldown = d.proactiveCooldown ?? 30;
 				doubleTextChanceMin = d.doubleTextChanceMin ?? 10;
 				doubleTextChanceMax = d.doubleTextChanceMax ?? 30;
 				engageChanceOnline = d.engageChanceOnline ?? 80;
@@ -77,7 +79,7 @@
 				body: JSON.stringify({
 					channelFrequencyMin, channelFrequencyMax, useNamePrimer, compactHistory,
 					engageRollMin, engageRollMax,
-					joinChancePerMessage, memoryDecayPoints, engageContextOffset, engageCooldown,
+					joinChancePerMessage, memoryDecayPoints, engageContextOffset, engageCooldown, proactiveCooldown,
 					doubleTextChanceMin, doubleTextChanceMax,
 					engageChanceOnline, engageChanceAway, engageChanceBusy,
 					engageDurationOnline, engageDurationAway, engageDurationBusy
@@ -295,6 +297,18 @@
 								<span class="text-sm font-mono text-[var(--accent-primary)]">{engageCooldown} min</span>
 							</div>
 							<Slider bind:value={engageCooldown} min={0} max={30} step={1} unit=" min" />
+						</div>
+
+						<!-- Proactive Cooldown -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Proactive Cooldown</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								Minimum time between proactive messages in a channel (when a character starts a new topic unprompted).
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{proactiveCooldown} min</span>
+							</div>
+							<Slider bind:value={proactiveCooldown} min={1} max={120} step={1} unit=" min" />
 						</div>
 
 						<!-- Name Primer -->

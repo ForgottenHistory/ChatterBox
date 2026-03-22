@@ -30,6 +30,8 @@ export const users = sqliteTable('users', {
 	engageContextOffset: integer('engage_context_offset').notNull().default(10),
 	// Engagement cooldown after disengaging (minutes)
 	engageCooldown: integer('engage_cooldown').notNull().default(5),
+	// Proactive message cooldown per channel (minutes)
+	proactiveCooldown: integer('proactive_cooldown').notNull().default(30),
 	// Engagement settings - chance to join conversation (%)
 	engageChanceOnline: integer('engage_chance_online').notNull().default(80),
 	engageChanceAway: integer('engage_chance_away').notNull().default(30),

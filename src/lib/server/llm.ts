@@ -278,7 +278,7 @@ export async function generateChatCompletion(
 
 					const currentIdx = blocks.findIndex((b: any) => {
 						if (b.end === '00:00') return timeStr >= b.start;
-						return timeStr >= b.start && timeStr < b.end;
+						return b.end === '00:00' ? timeStr >= b.start : timeStr >= b.start && timeStr < b.end;
 					});
 					if (currentIdx !== -1) {
 						const current = blocks[currentIdx];

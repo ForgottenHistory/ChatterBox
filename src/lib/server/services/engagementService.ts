@@ -8,7 +8,7 @@ import { getSocketServer } from '$lib/server/socket';
 import { logger } from '$lib/server/utils/logger';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-const PROACTIVE_COOLDOWN = 30 * 60 * 1000;
+const DEFAULT_PROACTIVE_COOLDOWN_MIN = 30;
 const PROACTIVE_ENGAGE_BOOST = 1.5;
 const ENGAGE_ROLL_COOLDOWN_MS = 10000;
 const MAX_ROLL_DEPTH = 1;
@@ -30,7 +30,8 @@ function getCharacterStatus(character: Character): CharacterStatus {
 		if (!blocks) return 'online';
 		const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
 		for (const block of blocks) {
-			if (timeStr >= block.start && timeStr < block.end) {
+			const matches = block.end === '00:00' ? timeStr >= block.start : timeStr >= block.start && timeStr < block.end;
+			if (matches) {
 				return block.status as CharacterStatus;
 			}
 		}
@@ -274,7 +275,9 @@ class EngagementService {
 	}
 
 	private canProactive(engine: ChannelEngine, recentMessages: Message[]): boolean {
-		if (Date.now() - engine.lastProactiveTime < PROACTIVE_COOLDOWN) return false;
+		const s = engine.getBehaviourSettings();
+		const cooldownMs = ((s?.proactiveCooldown ?? DEFAULT_PROACTIVE_COOLDOWN_MIN) * 60 * 1000);
+		if (Date.now() - engine.lastProactiveTime < cooldownMs) return false;
 		return true;
 	}
 
