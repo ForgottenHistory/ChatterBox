@@ -32,6 +32,10 @@ export const users = sqliteTable('users', {
 	engageCooldown: integer('engage_cooldown').notNull().default(5),
 	// Proactive message cooldown per channel (minutes)
 	proactiveCooldown: integer('proactive_cooldown').notNull().default(30),
+	// Conversation nudge chance (0-100%, 0 = disabled)
+	nudgeChance: integer('nudge_chance').notNull().default(30),
+	// Max messages with character name mentions per generation (0 = unlimited)
+	maxAddressedMessages: integer('max_addressed_messages').notNull().default(2),
 	// Engagement settings - chance to join conversation (%)
 	engageChanceOnline: integer('engage_chance_online').notNull().default(80),
 	engageChanceAway: integer('engage_chance_away').notNull().default(30),

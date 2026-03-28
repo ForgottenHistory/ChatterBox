@@ -39,12 +39,16 @@ function getCharacterStatus(character: Character): CharacterStatus {
 	return 'online';
 }
 
+const RECENTLY_LEFT_MESSAGE_WINDOW = 15;
+
 class ChannelEngine {
 	channelId: number;
 	userId: number;
 	engageStartMsgId = new Map<number, number>();
 	engageWindows = new Map<number, [number, number][]>();
 	lastProactiveTime = 0;
+	// characterId → message ID when they left (used to show "recently left" for N messages)
+	recentlyLeft = new Map<number, number>();
 
 	engagementTimer: ReturnType<typeof setTimeout> | null = null;
 	engageRollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -227,12 +231,19 @@ class EngagementService {
 		for (const [charId, entry] of this.engaged) {
 			if (entry.channelId !== engine.channelId) continue;
 			const startMsgId = engine.engageStartMsgId.get(charId) ?? 0;
-			await db.insert(engagementState).values({
-				channelId: engine.channelId,
-				characterId: charId,
-				engagedUntil: entry.expiry,
-				startMsgId
-			});
+			try {
+				await db.insert(engagementState).values({
+					channelId: engine.channelId,
+					characterId: charId,
+					engagedUntil: entry.expiry,
+					startMsgId
+				});
+			} catch (err) {
+				// Character may have been deleted — remove from engagement
+				logger.warn(`[Engagement] Failed to save state for character ${charId}, removing from engagement`);
+				this.removeEngaged(charId);
+				engine.engageStartMsgId.delete(charId);
+			}
 		}
 	}
 
@@ -293,14 +304,34 @@ class EngagementService {
 	// ─── Window Management ───
 
 	private async closeEngageWindow(engine: ChannelEngine, charId: number): Promise<void> {
-		const startId = engine.engageStartMsgId.get(charId);
-		if (startId === undefined) return;
+		let startId = engine.engageStartMsgId.get(charId);
+		if (startId === undefined) {
+			// Fallback: try to find the character's earliest message in this engagement
+			// by looking at the engagement state in DB
+			const [stateRow] = await db.select({ startMsgId: engagementState.startMsgId })
+				.from(engagementState)
+				.where(and(eq(engagementState.channelId, engine.channelId), eq(engagementState.characterId, charId)))
+				.limit(1);
+			if (stateRow) {
+				startId = stateRow.startMsgId;
+			} else {
+				logger.warn(`[Engagement] closeEngageWindow: no startMsgId for character ${charId} in channel ${engine.channelId}, skipping`);
+				return;
+			}
+		}
 
 		const [lastMsg] = await db.select({ id: messages.id }).from(messages)
 			.where(eq(messages.conversationId, engine.channelId))
 			.orderBy(desc(messages.createdAt))
 			.limit(1);
 		const endId = lastMsg?.id ?? 0;
+
+		// Skip if window is invalid (start > end means startId is from wrong channel or no messages after start)
+		if (startId > endId) {
+			logger.warn(`[Engagement] closeEngageWindow: invalid window start=${startId} > end=${endId} for character ${charId} in channel ${engine.channelId}, skipping`);
+			engine.engageStartMsgId.delete(charId);
+			return;
+		}
 
 		const windows = engine.engageWindows.get(charId) || [];
 		windows.push([startId, endId]);
@@ -310,19 +341,23 @@ class EngagementService {
 		await this.saveWindowToDB(engine, charId, startId, endId);
 	}
 
-	private getVisibleMessageIds(engine: ChannelEngine, characterId: number, offset: number, allMessages: Message[]): number[] {
+	private async getVisibleMessageIds(engine: ChannelEngine, characterId: number, offset: number, allMessages: Message[]): Promise<number[]> {
 		if (allMessages.length === 0) return [];
 
 		const currentStartMsgId = engine.engageStartMsgId.get(characterId);
-		const historicalWindows = engine.engageWindows.get(characterId) || [];
 
-		if (currentStartMsgId === undefined && historicalWindows.length === 0) {
+		// Always read historical windows from DB (source of truth)
+		const dbWindows = await db.select({ startMsgId: engagementWindows.startMsgId, endMsgId: engagementWindows.endMsgId })
+			.from(engagementWindows)
+			.where(and(eq(engagementWindows.channelId, engine.channelId), eq(engagementWindows.characterId, characterId)));
+
+		if (currentStartMsgId === undefined && dbWindows.length === 0) {
 			return allMessages.map(m => m.id);
 		}
 
 		const visible = new Set<number>();
 
-		for (const [startId, endId] of historicalWindows) {
+		for (const { startMsgId: startId, endMsgId: endId } of dbWindows) {
 			let startIdx = allMessages.findIndex(m => m.id >= startId);
 			let endIdx = allMessages.findIndex(m => m.id > endId);
 			if (startIdx === -1) continue;
@@ -351,13 +386,13 @@ class EngagementService {
 
 	private startCleanup(engine: ChannelEngine): void {
 		if (engine.cleanupInterval) return;
-		engine.cleanupInterval = setInterval(() => {
+		engine.cleanupInterval = setInterval(async () => {
 			const activeBefore = this.getActiveEngaged(engine.channelId).length;
 			if (activeBefore === 0) return;
-			this.cleanExpired(engine);
+			await this.cleanExpired(engine);
 			if (this.getActiveEngaged(engine.channelId).length < activeBefore) {
 				this.emitEngagementChanged(engine);
-				this.saveEngagementToDB(engine);
+				await this.saveEngagementToDB(engine);
 			}
 		}, 30000);
 	}
@@ -376,6 +411,12 @@ class EngagementService {
 				this.removeEngaged(charId);
 				await this.closeEngageWindow(engine, charId);
 				if (cooldownMs > 0) this.setCooldown(charId, now + cooldownMs);
+
+				// Track as recently left
+				const [lastMsg] = await db.select({ id: messages.id }).from(messages)
+					.where(eq(messages.conversationId, engine.channelId))
+					.orderBy(desc(messages.createdAt)).limit(1);
+				if (lastMsg) engine.recentlyLeft.set(charId, lastMsg.id);
 
 				extractMemories(charId, engine.userId, engine.channelId).catch(err =>
 					logger.warn(`[Engagement] Memory extraction failed for ${name}:`, err)
@@ -407,7 +448,13 @@ class EngagementService {
 				.where(eq(messages.conversationId, engine.channelId))
 				.orderBy(messages.createdAt);
 
-			let visibleMessageIds = this.getVisibleMessageIds(engine, characterId, offset, allMessages);
+			let visibleMessageIds = await this.getVisibleMessageIds(engine, characterId, offset, allMessages);
+
+			const charName = character.name;
+			const startMsgId = engine.engageStartMsgId.get(characterId);
+			const dbWindowCount = await db.select({ id: engagementWindows.id }).from(engagementWindows)
+				.where(and(eq(engagementWindows.channelId, engine.channelId), eq(engagementWindows.characterId, characterId)));
+			logger.info(`[Engagement] ${charName}: ${allMessages.length} total msgs, ${visibleMessageIds.length} visible, ${dbWindowCount.length} db windows, startMsgId=${startMsgId}`);
 
 			// For proactive messages or fresh engagements with little context,
 			// include the last 20 messages so the character knows the room's vibe
@@ -419,6 +466,22 @@ class EngagementService {
 
 			const engagedCharacterIds = this.getActiveEngaged(engine.channelId);
 
+			// Compute recently left characters (left within the last N messages)
+			const recentlyLeftIds: number[] = [];
+			if (allMessages.length > 0) {
+				const currentLastMsgId = allMessages[allMessages.length - 1].id;
+				for (const [leftCharId, leftAtMsgId] of engine.recentlyLeft) {
+					// Count messages since they left
+					const msgsSinceLeft = allMessages.filter(m => m.id > leftAtMsgId).length;
+					if (msgsSinceLeft <= RECENTLY_LEFT_MESSAGE_WINDOW) {
+						recentlyLeftIds.push(leftCharId);
+					} else {
+						// Expired — clean up
+						engine.recentlyLeft.delete(leftCharId);
+					}
+				}
+			}
+
 			// Delay before typing indicator — simulates reading the message
 			await sleep(800 + Math.random() * 1200);
 			this.emitToChannel(engine.channelId, 'channel-typing', { characterName: character.name, isTyping: true });
@@ -426,7 +489,8 @@ class EngagementService {
 			const result = await generateChannelMessage(engine.channelId, engine.userId, characterId, {
 				proactive,
 				visibleMessageIds,
-				engagedCharacterIds
+				engagedCharacterIds,
+				recentlyLeftIds
 			});
 
 			this.emitToChannel(engine.channelId, 'channel-typing', { characterName: character.name, isTyping: false });
@@ -650,30 +714,49 @@ class EngagementService {
 		await engine.ensureCache();
 
 		const active = this.getActiveEngaged(channelId);
-		if (active.length > 0) {
-			if (engine.engagementTimer) { clearTimeout(engine.engagementTimer); engine.engagementTimer = null; }
+		const chars = engine.getCharacters();
+		const msgLower = messageText.toLowerCase();
 
-			const chars = engine.getCharacters();
-			let charId: number | undefined;
-
-			const msgLower = messageText.toLowerCase();
-			for (const id of active) {
-				const char = chars.find(c => c.id === id);
-				if (char && msgLower.includes(char.name.toLowerCase())) { charId = id; break; }
-			}
-			if (!charId) {
-				for (const id of active) {
-					const char = chars.find(c => c.id === id);
-					if (char) {
-						const firstName = char.name.split(' ')[0].toLowerCase();
-						if (firstName.length >= 3 && msgLower.includes(firstName)) { charId = id; break; }
-					}
+		// Check if the user mentioned any character by name (engaged or not)
+		const mentionedIds: number[] = [];
+		for (const char of chars) {
+			if (msgLower.includes(char.name.toLowerCase())) {
+				mentionedIds.push(char.id);
+			} else {
+				const firstName = char.name.split(' ')[0].toLowerCase();
+				if (firstName.length >= 3 && msgLower.includes(firstName)) {
+					mentionedIds.push(char.id);
 				}
 			}
-			if (!charId) charId = active[Math.floor(Math.random() * active.length)];
+		}
+
+		// Engage any mentioned characters that aren't already engaged
+		for (const mentionedId of mentionedIds) {
+			const char = chars.find(c => c.id === mentionedId);
+			if (char && !this.isEngagedIn(mentionedId, channelId) && this.isAvailable(char)) {
+				await this.engageCharacter(engine, mentionedId, false);
+			}
+		}
+
+		// Refresh active list after potential new engagements
+		const activeNow = this.getActiveEngaged(channelId);
+
+		if (activeNow.length > 0) {
+			// Cancel pending loop message — user took priority
+			if (engine.engagementTimer) { clearTimeout(engine.engagementTimer); engine.engagementTimer = null; }
+
+			// Pick who responds: prefer mentioned + engaged character, else random engaged
+			let charId: number | undefined;
+			// First try: mentioned character that's engaged in this channel
+			for (const id of mentionedIds) {
+				if (activeNow.includes(id)) { charId = id; break; }
+			}
+			// Fallback: random engaged character
+			if (!charId) charId = activeNow[Math.floor(Math.random() * activeNow.length)];
 
 			await this.generateMessage(engine, charId);
 
+			// Chance to pull in another character
 			const s = engine.getBehaviourSettings();
 			const joinChance = (s?.joinChancePerMessage ?? 1) / 100;
 			if (joinChance > 0 && Math.random() < joinChance) {
@@ -689,6 +772,7 @@ class EngagementService {
 				else this.scheduleNextMessage(engine);
 			}
 		} else {
+			// No one engaged — roll for engagement
 			await this.rollEngagement(engine);
 		}
 	}
@@ -737,6 +821,12 @@ class EngagementService {
 		const cooldownMs = (s?.engageCooldown ?? 5) * 60 * 1000;
 		if (cooldownMs > 0) this.setCooldown(characterId, Date.now() + cooldownMs);
 
+		// Track as recently left
+		const [lastMsg] = await db.select({ id: messages.id }).from(messages)
+			.where(eq(messages.conversationId, engine.channelId))
+			.orderBy(desc(messages.createdAt)).limit(1);
+		if (lastMsg) engine.recentlyLeft.set(characterId, lastMsg.id);
+
 		extractMemories(characterId, engine.userId, engine.channelId).catch(err =>
 			logger.warn('[Engagement] Memory extraction failed on ignore:', err)
 		);
@@ -747,6 +837,20 @@ class EngagementService {
 		if (this.getActiveEngaged(channelId).length < 2) {
 			this.stopLoop(engine);
 		}
+	}
+
+	// ─── Character Removal ───
+
+	/** Remove a character from all engagement state (call when character is deleted) */
+	removeCharacter(characterId: number): void {
+		this.removeEngaged(characterId);
+		this.cooldowns.delete(characterId);
+		for (const engine of this.engines.values()) {
+			engine.engageStartMsgId.delete(characterId);
+			engine.engageWindows.delete(characterId);
+			engine.invalidateCache();
+		}
+		logger.info(`[Engagement] Removed character ${characterId} from all engagement state`);
 	}
 
 	// ─── Debug ───
@@ -800,16 +904,22 @@ class EngagementService {
 		// Stop the loop on source
 		this.stopLoop(fromEngine);
 
+		// Collect characters to move first (don't modify map while iterating)
+		const toMove: { charId: number; expiry: number }[] = [];
+		for (const [charId, entry] of this.engaged) {
+			if (entry.channelId === fromChannelId) {
+				toMove.push({ charId, expiry: entry.expiry });
+			}
+		}
+
 		// Move all engaged characters from source to target
 		const movedCharIds: number[] = [];
-		for (const [charId, entry] of this.engaged) {
-			if (entry.channelId !== fromChannelId) continue;
-
+		for (const { charId, expiry } of toMove) {
 			// Close window in source channel
 			await this.closeEngageWindow(fromEngine, charId);
 
 			// Move engagement to target channel
-			this.setEngaged(charId, toChannelId, entry.expiry);
+			this.setEngaged(charId, toChannelId, expiry);
 
 			// Set up start msg in target
 			const [lastMsg] = await db.select({ id: messages.id }).from(messages)

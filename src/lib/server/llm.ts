@@ -167,7 +167,7 @@ export async function generateChatCompletion(
 	character: Character,
 	settings: LlmSettings,
 	messageType: string = 'chat',
-	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean; engagedCharacterIds?: number[]; channelId?: number; channelName?: string; channelDescription?: string }
+	options?: { useNamePrimer?: boolean; compactHistory?: boolean; proactive?: boolean; engagedCharacterIds?: number[]; recentlyLeftIds?: number[]; nudgeChance?: number; channelId?: number; channelName?: string; channelDescription?: string }
 ): Promise<ChatCompletionResult> {
 	// Get active user info (persona or default profile)
 	const userInfo = await personaService.getActiveUserInfo(settings.userId);
@@ -259,6 +259,20 @@ export async function generateChatCompletion(
 			} catch (err) {
 				logger.warn('Failed to load engaged character personalities:', err);
 			}
+		}
+
+		// Add "People who left the chat" — recently disengaged characters
+		if (options?.recentlyLeftIds && options.recentlyLeftIds.length > 0) {
+			try {
+				const leftIds = options.recentlyLeftIds.filter(id => id !== character.id);
+				if (leftIds.length > 0) {
+					const leftChars = await db.select({ name: charactersTable.name })
+						.from(charactersTable).where(inArray(charactersTable.id, leftIds));
+					if (leftChars.length > 0) {
+						systemContent += `\n\nRECENTLY LEFT THE CHAT:\n${leftChars.map(c => c.name).join(', ')}`;
+					}
+				}
+			} catch {}
 		}
 
 		// Add schedule/activity context if available
@@ -396,6 +410,22 @@ export async function generateChatCompletion(
 				}
 			} catch (err) {
 				logger.warn('Failed to load cross-channel conversations:', err);
+			}
+		}
+
+		// Conversation nudge — randomly encourage the character to shift gears
+		const nudgeChancePct = options?.nudgeChance ?? 30;
+		if (messageType !== 'channel-proactive' && conversationHistory.length >= 5 && nudgeChancePct > 0) {
+			const nudgeRoll = Math.random();
+			if (nudgeRoll < nudgeChancePct / 100) {
+				const nudges = [
+					'NUDGE: The conversation has been going in one direction for a while. Instead of reacting to the last message, bring up something new — something from your schedule, a random thought, or pivot the topic entirely.',
+					'NUDGE: Don\'t just comment on what was said. Ask someone a direct personal question, share something about YOUR day, or challenge someone\'s take.',
+					'NUDGE: Move the conversation forward. If everyone\'s been talking about the same thing, change the subject. If it\'s been reactive, be proactive. Say something nobody expects.',
+					'NUDGE: Think about what YOUR character would actually want to talk about right now. Not what the group is discussing — what\'s on YOUR mind based on your personality and current activity?',
+					'NUDGE: Real conversations zigzag. If the last few messages were serious, be silly. If they were silly, get real for a second. Break the pattern.'
+				];
+				systemContent += `\n\n${nudges[Math.floor(Math.random() * nudges.length)]}`;
 			}
 		}
 

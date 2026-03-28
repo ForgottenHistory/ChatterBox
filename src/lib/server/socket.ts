@@ -113,6 +113,13 @@ export function initSocketServer(httpServer: Server) {
 			if (svc) await svc.debugClear(data.channelId);
 		});
 
+		socket.on('channel-engage-character', async (data: { channelId: number; characterId: number }) => {
+			const svc = getEngagementService();
+			if (!svc) return;
+			const engine = svc.getEngine(data.channelId);
+			if (engine) await svc.engageCharacter(engine, data.characterId);
+		});
+
 		socket.on('channel-move-engagement', async (data: { fromChannelId: number; toChannelId: number }) => {
 			if (!userId) return;
 			const svc = getEngagementService();

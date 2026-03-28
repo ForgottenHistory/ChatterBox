@@ -11,7 +11,7 @@
 	import { getCharactersCache, isCharactersCacheLoaded } from '$lib/stores/characters';
 	import {
 		initSocket, joinChannel, leaveChannel, emitUserMessage,
-		emitDebugEngage, emitDebugClear, emitMoveEngagement,
+		emitDebugEngage, emitDebugClear, emitMoveEngagement, emitEngageCharacter,
 		onChannelNewMessage, onChannelTyping, onChannelEngagementChanged,
 		removeChannelListeners
 	} from '$lib/stores/socket';
@@ -233,6 +233,7 @@
 					{avatarStyle}
 					{engagedIds}
 					onShowMemories={(id, name) => { memoriesCharacterId = id; memoriesCharacterName = name; }}
+					onEngageCharacter={(id) => emitEngageCharacter(data.channelId, id)}
 				/>
 			{/if}
 		</div>

@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { characters } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { engagementService } from '$lib/server/services/engagementService';
 
 // GET - Get single character
 export const GET: RequestHandler = async ({ params, cookies }) => {
@@ -90,6 +91,9 @@ export const DELETE: RequestHandler = async ({ params, cookies }) => {
 		}
 
 		const characterId = parseInt(params.id);
+
+		// Remove from engagement state before deleting
+		engagementService.removeCharacter(characterId);
 
 		// Delete only if it belongs to the user
 		await db

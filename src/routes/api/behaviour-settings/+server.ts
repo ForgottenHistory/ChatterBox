@@ -37,7 +37,9 @@ export const GET: RequestHandler = async ({ cookies }) => {
 		engageDurationOnline: user.engageDurationOnline,
 		engageDurationAway: user.engageDurationAway,
 		engageDurationBusy: user.engageDurationBusy,
-		proactiveCooldown: user.proactiveCooldown
+		proactiveCooldown: user.proactiveCooldown,
+		nudgeChance: user.nudgeChance,
+		maxAddressedMessages: user.maxAddressedMessages
 	});
 };
 
@@ -103,6 +105,16 @@ export const PUT: RequestHandler = async ({ cookies, request }) => {
 	// Proactive cooldown
 	if (typeof body.proactiveCooldown === 'number') {
 		updateData.proactiveCooldown = Math.max(1, Math.round(body.proactiveCooldown));
+	}
+
+	// Nudge chance
+	if (typeof body.nudgeChance === 'number') {
+		updateData.nudgeChance = Math.max(0, Math.min(100, Math.round(body.nudgeChance)));
+	}
+
+	// Max addressed messages
+	if (typeof body.maxAddressedMessages === 'number') {
+		updateData.maxAddressedMessages = Math.max(0, Math.round(body.maxAddressedMessages));
 	}
 
 	// Engagement chances (0-100)

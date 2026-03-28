@@ -22,9 +22,10 @@ export async function generateChannelMessage(
 		proactive?: boolean;
 		visibleMessageIds?: number[];
 		engagedCharacterIds?: number[];
+		recentlyLeftIds?: number[];
 	} = {}
 ): Promise<ChannelGenerationResult> {
-	const { proactive = false, visibleMessageIds, engagedCharacterIds } = options;
+	const { proactive = false, visibleMessageIds, engagedCharacterIds, recentlyLeftIds } = options;
 
 	// Get channel info
 	const [channel] = await db
@@ -74,7 +75,7 @@ export async function generateChannelMessage(
 
 	// Trim conversation history by dropping oldest engagement windows until it fits.
 	if (settings.contextWindow && settings.contextWindow > 0 && visibleMessageIds && visibleMessageIds.length > 0) {
-		const budgetChars = Math.max(0, settings.contextWindow - (settings.maxTokens ?? 300)) * 4;
+		const budgetChars = settings.contextWindow * 4;
 
 		const dbWindows = await db
 			.select()
@@ -121,7 +122,7 @@ export async function generateChannelMessage(
 			}
 		}
 	} else if (settings.contextWindow && settings.contextWindow > 0) {
-		const budgetChars = Math.max(0, settings.contextWindow - (settings.maxTokens ?? 300)) * 4;
+		const budgetChars = settings.contextWindow * 4;
 		let totalChars = 0;
 		let keepFrom = conversationHistory.length;
 		for (let i = conversationHistory.length - 1; i >= 0; i--) {
@@ -135,7 +136,7 @@ export async function generateChannelMessage(
 
 	// Get behaviour settings
 	const [user] = await db
-		.select({ useNamePrimer: users.useNamePrimer, compactHistory: users.compactHistory })
+		.select({ useNamePrimer: users.useNamePrimer, compactHistory: users.compactHistory, nudgeChance: users.nudgeChance, maxAddressedMessages: users.maxAddressedMessages })
 		.from(users)
 		.where(eq(users.id, userId))
 		.limit(1);
@@ -145,7 +146,7 @@ export async function generateChannelMessage(
 		character,
 		settings,
 		proactive ? 'channel-proactive' : 'channel',
-		{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive, engagedCharacterIds, channelId, channelName: channel?.name || undefined, channelDescription: channel?.description || undefined }
+		{ useNamePrimer: user?.useNamePrimer ?? true, compactHistory: user?.compactHistory ?? true, proactive, engagedCharacterIds, recentlyLeftIds, nudgeChance: user?.nudgeChance ?? 30, channelId, channelName: channel?.name || undefined, channelDescription: channel?.description || undefined }
 	);
 
 	// Check for *ignore*
@@ -163,7 +164,7 @@ export async function generateChannelMessage(
 	// Post-process: split on newlines, strip "Name: " prefixes
 	const charName = character.name.toLowerCase();
 	const rawLines = cleanedContent
-		.split(/\n+/)
+		.split(/\r?\n+/)
 		.map((line: string) => line.trim())
 		.filter((line: string) => line.length > 0);
 
@@ -183,14 +184,44 @@ export async function generateChannelMessage(
 		lines.push(line);
 	}
 
-	// Filter out bracketed meta-text
-	const cleanLines = lines.filter(line => !line.match(/^\[.*\]$/));
+	// Filter out bracketed meta-text (e.g. [TIME GAP], [response], [system])
+	// Also filter lines that contain [TIME GAP] even mixed with other text
+	const cleanLines = lines.filter(line =>
+		!line.match(/^\s*\[.*\]\s*$/) && !line.includes('[TIME GAP')
+	);
 
 	// Deduplicate against last 20 messages
 	const recentContent = new Set(
 		conversationHistory.slice(-20).map(m => m.content.toLowerCase().trim())
 	);
-	const dedupedLines = cleanLines.filter(line => !recentContent.has(line.toLowerCase().trim()));
+	let dedupedLines = cleanLines.filter(line => !recentContent.has(line.toLowerCase().trim()));
+
+	// Enforce max addressed messages limit
+	const maxAddr = user?.maxAddressedMessages ?? 2;
+	if (maxAddr > 0 && dedupedLines.length > 1) {
+		// Get all character names (excluding the generating character) for matching
+		const allChars = await db.select({ name: characters.name }).from(characters).where(eq(characters.userId, userId));
+		const otherNames = allChars
+			.filter(c => c.name.toLowerCase() !== charName)
+			.map(c => c.name.toLowerCase());
+
+		// Also include the user's name
+		const userInfo = await db.select({ displayName: users.displayName }).from(users).where(eq(users.id, userId)).limit(1);
+		if (userInfo.length > 0) otherNames.push(userInfo[0].displayName.toLowerCase());
+
+		let addressedCount = 0;
+		const limitedLines: string[] = [];
+		for (const line of dedupedLines) {
+			const lineLower = line.toLowerCase();
+			const mentionsName = otherNames.some(name => lineLower.includes(name));
+			if (mentionsName) {
+				addressedCount++;
+				if (addressedCount > maxAddr) continue; // Discard this line
+			}
+			limitedLines.push(line);
+		}
+		dedupedLines = limitedLines;
+	}
 
 	if (dedupedLines.length === 0) {
 		return { messages: [], characterId: character.id };

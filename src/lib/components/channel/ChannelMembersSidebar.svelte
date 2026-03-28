@@ -9,9 +9,10 @@
 		avatarStyle?: 'circle' | 'rounded';
 		engagedIds?: Set<number>;
 		onShowMemories?: (characterId: number, characterName: string) => void;
+		onEngageCharacter?: (characterId: number) => void;
 	}
 
-	let { characters, user, avatarStyle = 'circle', engagedIds = new Set(), onShowMemories }: Props = $props();
+	let { characters, user, avatarStyle = 'circle', engagedIds = new Set(), onShowMemories, onEngageCharacter }: Props = $props();
 
 	// Tick every 60s to refresh schedule-based statuses
 	let tick = $state(0);
@@ -236,9 +237,27 @@
 					</div>
 				{/if}
 
-				<!-- Memories button -->
-				{#if onShowMemories}
-					<div class="mt-3 pt-3 border-t border-[var(--border-primary)]">
+				<!-- Engage / Memories buttons -->
+				<div class="mt-3 pt-3 border-t border-[var(--border-primary)] space-y-1">
+					{#if onEngageCharacter && !engagedIds.has(member.character.id) && member.status !== 'offline'}
+						<button
+							onclick={(e: MouseEvent) => { e.stopPropagation(); onEngageCharacter(member.character.id); closePopover(); }}
+							class="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--accent-primary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary)]/10 rounded-lg transition cursor-pointer"
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+							</svg>
+							Engage in Chat
+						</button>
+					{:else if engagedIds.has(member.character.id)}
+						<div class="flex items-center gap-2 px-3 py-2 text-xs text-[var(--success)]">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+							</svg>
+							Currently Engaged
+						</div>
+					{/if}
+					{#if onShowMemories}
 						<button
 							onclick={(e: MouseEvent) => { e.stopPropagation(); onShowMemories(member.character.id, member.character.name); closePopover(); }}
 							class="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-lg transition cursor-pointer"
@@ -248,8 +267,8 @@
 							</svg>
 							View Memories
 						</button>
-					</div>
-				{/if}
+					{/if}
+				</div>
 			</div>
 		</div>
 	{/if}

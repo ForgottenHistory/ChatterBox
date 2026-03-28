@@ -28,6 +28,8 @@
 	let engageContextOffset = $state(10);
 	let engageCooldown = $state(5);
 	let proactiveCooldown = $state(30);
+	let nudgeChance = $state(30);
+	let maxAddressedMessages = $state(2);
 	let engageDurationOnline = $state(5);
 	let engageDurationAway = $state(2);
 	let engageDurationBusy = $state(1);
@@ -52,6 +54,8 @@
 				engageContextOffset = d.engageContextOffset ?? 10;
 				engageCooldown = d.engageCooldown ?? 5;
 				proactiveCooldown = d.proactiveCooldown ?? 30;
+				nudgeChance = d.nudgeChance ?? 30;
+				maxAddressedMessages = d.maxAddressedMessages ?? 2;
 				doubleTextChanceMin = d.doubleTextChanceMin ?? 10;
 				doubleTextChanceMax = d.doubleTextChanceMax ?? 30;
 				engageChanceOnline = d.engageChanceOnline ?? 80;
@@ -79,7 +83,7 @@
 				body: JSON.stringify({
 					channelFrequencyMin, channelFrequencyMax, useNamePrimer, compactHistory,
 					engageRollMin, engageRollMax,
-					joinChancePerMessage, memoryDecayPoints, engageContextOffset, engageCooldown, proactiveCooldown,
+					joinChancePerMessage, memoryDecayPoints, engageContextOffset, engageCooldown, proactiveCooldown, nudgeChance, maxAddressedMessages,
 					doubleTextChanceMin, doubleTextChanceMax,
 					engageChanceOnline, engageChanceAway, engageChanceBusy,
 					engageDurationOnline, engageDurationAway, engageDurationBusy
@@ -309,6 +313,30 @@
 								<span class="text-sm font-mono text-[var(--accent-primary)]">{proactiveCooldown} min</span>
 							</div>
 							<Slider bind:value={proactiveCooldown} min={1} max={120} step={1} unit=" min" />
+						</div>
+
+						<!-- Conversation Nudge -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Conversation Nudge</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								Chance that a character gets a nudge to shift the conversation — change topics, ask questions, or break repetitive patterns. Set to 0 to disable.
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{nudgeChance}%</span>
+							</div>
+							<Slider bind:value={nudgeChance} min={0} max={100} step={5} unit="%" />
+						</div>
+
+						<!-- Max Addressed Messages -->
+						<div>
+							<h2 class="text-lg font-semibold text-[var(--text-primary)] mb-2">Max Addressed Messages</h2>
+							<p class="text-sm text-[var(--text-muted)] mb-6">
+								Limit how many people a character can address per generation. Each line mentioning a different name counts as one. Lines beyond the limit are discarded. Set to 0 for unlimited.
+							</p>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-sm font-mono text-[var(--accent-primary)]">{maxAddressedMessages === 0 ? 'Unlimited' : maxAddressedMessages}</span>
+							</div>
+							<Slider bind:value={maxAddressedMessages} min={0} max={10} step={1} />
 						</div>
 
 						<!-- Name Primer -->
